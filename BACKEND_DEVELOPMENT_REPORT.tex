@@ -1,0 +1,176 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+}
+
+\title{Backend Development \& AI Integration Report - TahalilAI}
+\author{ Gabbas Yahya}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Executive Summary}
+This report outlines the technical development, architecture decisions, and testing protocols for the backend of \textbf{TahalilAI}, a local-first medical analysis interpretation tool. The system checks medical lab reports using offline OCR and Large Language Models (LLM).
+
+\section{Optical Character Recognition (OCR) Layer}
+To enable the system to "read" image-based lab reports, we integrated \textbf{Tesseract OCR}.
+
+\begin{itemize}
+    \item \textbf{Technology}: \texttt{pytesseract} (Python wrapper for Tesseract-OCR Engine).
+    \item \textbf{Configuration}: Configured for multi-language support (\texttt{eng+fra+ar}) to handle the bilingual nature of typical medical reports.
+    \item \textbf{Process}:
+    \begin{enumerate}
+        \item Image Preprocessing (handled via \texttt{Pillow}).
+        \item Text Extraction.
+        \item Sanitization (removing artifacts).
+    \end{enumerate}
+    \item \textbf{Testing}: Validated independently on sample "Resultats-de-laboratoire.png" files to ensure text fidelity before passing data to the AI.
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth] {ocr_sample.png}
+    \fbox{\begin{minipage}{0.8\textwidth}
+        \centering
+        \vspace{2cm}
+    \end{minipage}}
+    \caption{OCR Process Validation: Input Image vs. Extracted Text}
+    \label{fig:ocr-validation}
+\end{figure}
+
+\section{Generative AI \& Model Selection Strategy}
+This module is the core decision-making engine. We iterated through two distinct models to optimize the balance between \textbf{accuracy} and \textbf{performance}.
+
+\subsection{Phase A: Initial Implementation (Mistral 7B)}
+\begin{itemize}
+    \item \textbf{Model}: \texttt{mistral-7b-instruct-v0.2.Q4\_K\_M.gguf}
+    \item \textbf{Observation}: While highly capable, the 7-billion parameter model was extremely resource-intensive for a local CPU-based environment.
+    \item \textbf{Performance Issues}:
+    \begin{itemize}
+        \item Inference times often exceeded \textbf{7 minutes}.
+        \item Caused browser timeouts ("Failed to fetch").
+        \item High RAM consumption leading to system freeze.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Phase B: The Switch to Ministral 3B (Current Solution)}
+\begin{itemize}
+    \item \textbf{Model}: \texttt{Ministral-3-3B-Instruct-2512-Q5\_K\_M.gguf}
+    \item \textbf{Why we switched}:
+    \begin{enumerate}
+        \item \textbf{Speed}: Reduced inference time drastically (from $\sim$+7 minutes to under 3 minutes).
+        \item \textbf{Efficiency}: The 3B model offers a "sweet spot" for summarization tasks without requiring enterprise-grade GPU hardware.
+        \item \textbf{Stability}: Lower memory footprint prevents the backend from crashing the host machine.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Technical Implementation Adjustment}
+We moved from basic script execution to a robust \texttt{subprocess} architecture using \texttt{llama-cli.exe}.
+\begin{itemize}
+    \item \textbf{Problem 1}: Direct bindings were causing "buffering deadlocks" and zombie processes that held port 8000 open.
+    \item \textbf{Solution 1}: Implemented a \texttt{subprocess.communicate()} pattern with a hard \textbf{180-second timeout} to handle I/O streams safely and kill stalled processes automatically.
+    \item \textbf{Problem 2}: Newer versions of \texttt{llama-cli.exe} auto-detect chat templates and enter \textbf{interactive conversation mode}, causing the process to hang indefinitely waiting for user input instead of exiting after generation.
+    \item \textbf{Solution 2}: Added the \texttt{--single-turn} flag to force single-completion mode, ensuring the process generates the response and exits cleanly.
+    \item \textbf{Problem 3}: The original prompt format \texttt{[INST]...[/INST]} was incorrect for the Ministral 3B model.
+    \item \textbf{Solution 3}: Updated to the model's native template: \texttt{[SYSTEM\_PROMPT]...[/SYSTEM\_PROMPT][INST]...[/INST]}.
+\end{itemize}
+
+\section{System Architecture \& Workflow}
+The backend was built using \textbf{FastAPI} to ensure high performance and automatic documentation.
+
+\textbf{The Pipeline:}
+\begin{enumerate}
+    \item \textbf{Ingestion}: User uploads image via API.
+    \item \textbf{OCR}: Text is extracted from the image.
+    \item \textbf{Prompt Engineering}: A medical persona prompt is constructed (injecting Age/Gender context).
+    \item \textbf{Inference Interface}: The prompt is sent to \texttt{llama-cli} with \texttt{--single-turn} flag, a strict context window (4096 tokens), and a 180-second hard timeout.
+    \item \textbf{Polling Mechanism}:
+    \begin{itemize}
+        \item \textit{Issue}: Long-running AI tasks caused HTTP timeouts.
+        \item \textit{Fix}: Implemented an \textbf{Asynchronous Job Queue}. The API now returns a \texttt{job\_id} immediately, and the client polls \texttt{/status/\{job\_id\}}.
+    \end{itemize}
+\end{enumerate}
+
+\section{Testing \& Validation}
+We followed a rigorous progressive testing approach:
+
+\begin{enumerate}
+    \item \textbf{Component Level 1 (OCR)}: Verified that text extraction correctly identified medical terms (e.g., "Hématocrite", "Cholestérol").
+    \item \textbf{Arabic Language Support}: Specifically tested OCR capabilities on Arabic medical reports.
+    \begin{itemize}
+        \item \textbf{Objective}: Ensure the system can handle bilingual (Arabic/French) or purely Arabic lab results commonly found in the region.
+        \item \textbf{Method}: Configured Tesseract with \texttt{ara+eng+fra} and processed sample Arabic text files. output was verified for correct character connectivity and direction (RTL).
+        \item \textbf{Result}: The model successfully extracted key numerical values even when surrounded by Arabic text, though mixed-language lines required additional post-processing.
+    \end{itemize}
+    \item \textbf{Component Level 2 (AI Model)}: Ran the model in isolation via CLI to tune parameters (Context Window, Temperature) for optimal coherence.
+    \item \textbf{Integration Testing}: Combined OCR output $\rightarrow$ AI Input. Verified that the AI didn't hallucinate values not present in the OCR text.
+    \item \textbf{Automated API Tests}: Added \texttt{pytest} suite ensuring:
+    \begin{itemize}
+        \item Server Health (\texttt{200 OK})
+        \item Upload Flow
+        \item Job Status Logic
+    \end{itemize}
+\end{enumerate}
+
+\section{API Documentation (Swagger UI)}
+Automatic interactive documentation is provided by FastAPI/Swagger. This allows the team to test endpoints without a frontend.
+
+\begin{itemize}
+    \item \textbf{URL}: \texttt{http://localhost:8000/docs}
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    % \includegraphics[width=0.8\textwidth]{images/swagger_methods.png}
+    \fbox{\begin{minipage}{0.8\textwidth}
+        \centering
+        \vspace{2cm}
+        \textbf{[Image 1: Swagger UI - Overview of Available Methods]}
+        \vspace{2cm}
+    \end{minipage}}
+    \caption{Swagger UI: Overview of API Methods}
+    \label{fig:swagger-methods}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    % \includegraphics[width=0.8\textwidth]{images/swagger_post_params.png}
+    \fbox{\begin{minipage}{0.8\textwidth}
+        \centering
+        \vspace{2cm}
+        \textbf{[Image 3: Swagger UI - POST /analyze Parameters (File Upload, Age, Gender)]}
+        \vspace{2cm}
+    \end{minipage}}
+    \caption{Swagger UI: POST /analyze Request Parameters}
+    \label{fig:swagger-params}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    % \includegraphics[width=0.8\textwidth]{images/swagger_response.png}
+    \fbox{\begin{minipage}{0.8\textwidth}
+        \centering
+        \vspace{2cm}
+        \textbf{[Image 2: Swagger UI - JSON Response Body]}
+        \vspace{2cm}
+    \end{minipage}}
+    \caption{Swagger UI: Successful API Response}
+    \label{fig:swagger-response}
+\end{figure}
+
+\section{Conclusion}
+The backend is now a stable, independent microservice. It successfully decouples the heavy AI processing from the web server using asynchronous background tasks, ensuring the application remains responsive even during complex analysis.
+
+\end{document}
