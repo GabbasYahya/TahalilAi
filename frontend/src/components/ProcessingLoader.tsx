@@ -5,13 +5,15 @@ import { useLanguage } from "@/context/LanguageContext";
 interface ProcessingLoaderProps {
   /** Current step index (0, 1, 2) */
   currentStep: number;
+  /** Granular status message from backend */
+  customMessage?: string;
 }
 
 /**
  * Calm, step-based loader shown while the report is being "analyzed."
  * Designed to reduce anxiety — uses soft language and gentle animation.
  */
-export function ProcessingLoader({ currentStep }: ProcessingLoaderProps) {
+export function ProcessingLoader({ currentStep, customMessage }: ProcessingLoaderProps) {
   const { t } = useLanguage();
 
   const steps = [
@@ -36,9 +38,9 @@ export function ProcessingLoader({ currentStep }: ProcessingLoaderProps) {
             <div
               className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-500 ${
                 idx < currentStep
-                  ? "bg-primary-500 text-white"
+                  ? "bg-primary-500 text-white shadow-sm shadow-primary-200"
                   : idx === currentStep
-                  ? "bg-primary-100 text-primary-700 animate-pulse-gentle"
+                  ? "bg-primary-100 text-primary-700 animate-pulse-gentle shadow-sm shadow-primary-100"
                   : "bg-gray-100 text-gray-400"
               }`}
             >
@@ -48,16 +50,21 @@ export function ProcessingLoader({ currentStep }: ProcessingLoaderProps) {
             <span
               className={`text-sm transition-colors duration-500 ${
                 idx === currentStep
-                  ? "font-medium text-gray-900"
-                  : idx < currentStep
-                  ? "text-gray-500"
+                  ? "font-medium text-gray-900" 
+                  : idx < currentStep 
+                  ? "text-gray-500 line-through decoration-gray-300" 
                   : "text-gray-400"
               }`}
             >
-              {t(step.key)}
+              {t(step.key as any)}
             </span>
           </div>
         ))}
+        {customMessage && (
+            <div className="mt-4 text-center text-xs text-primary-600 font-medium animate-pulse">
+                {customMessage}
+            </div>
+        )}
       </div>
     </div>
   );

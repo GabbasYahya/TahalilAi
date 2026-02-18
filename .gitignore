@@ -1,5 +1,19 @@
-.venv/
+# ── Python ─────────────────────────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.venv/
+venv/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# ── Binary artifacts (LLM / llama.cpp) ─────────────────────────────────────
 *.gguf
 *.exe
 *.dll
@@ -10,10 +24,22 @@ __pycache__/
 *.so
 backend/bin/
 backend/Models/
+
+# ── Runtime data ───────────────────────────────────────────────────────────
 backend/uploads/
-dist/
-build/
-.next/
+
+# ── Environment ────────────────────────────────────────────────────────────
+.env
+!.env.example
+
+# ── Node / Frontend ───────────────────────────────────────────────────────
 node_modules/
-*.log
+.next/
+out/
+
+# ── OS / IDE ───────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
