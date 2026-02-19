@@ -85,7 +85,7 @@ def _get_qwen_model() -> object | None:
         dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
         print(f"Loading Qwen3-TTS on {device} ({dtype})...")
         _qwen_model = Qwen3TTSModel.from_pretrained(
-            "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+            "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
             device_map=device,
             dtype=dtype,
         )
@@ -100,6 +100,7 @@ def _get_qwen_model() -> object | None:
 _LANG_MAP: dict[str, str] = {
     "en": "English",
     "fr": "French",
+    "ar": "Arabic",
     "es": "Spanish",
     "de": "German",
     "it": "Italian",

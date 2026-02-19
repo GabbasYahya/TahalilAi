@@ -30,7 +30,8 @@ tts-gpu = [
     "qwen-tts",
     "torch",
     "soundfile",
-    "transformers",
+    # qwen-tts 0.1.x requires transformers <5.0 (uses check_model_inputs removed in v5)
+    "transformers>=4.40.0,<5.0.0",
     "accelerate",
 ]
 dev = [

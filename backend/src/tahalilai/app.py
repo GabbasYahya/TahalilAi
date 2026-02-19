@@ -202,11 +202,12 @@ def create_app() -> FastAPI:
             )
 
         _jobs[request.job_id]["audio_status"] = "generating"
+        tts_lang = request.language  # capture before closure
 
         def _audio_task() -> None:
             t0 = time.time()
             try:
-                generate_audio(analysis_text, audio_path)
+                generate_audio(analysis_text, audio_path, lang=tts_lang)
                 elapsed = round(time.time() - t0, 2)
                 print(f"[{request.job_id[:8]}] Audio generated in {elapsed}s")
                 _jobs[request.job_id]["audio_status"] = "completed"

@@ -9,6 +9,10 @@ class AudioRequest(BaseModel):
     """Body for ``POST /generate-audio``."""
 
     job_id: str = Field(..., description="UUID of the completed analysis job")
+    language: str = Field(
+        "en",
+        description="BCP-47 language code for TTS synthesis (e.g. 'en', 'fr', 'ar')",
+    )
 
 
 class TranslationRequest(BaseModel):
