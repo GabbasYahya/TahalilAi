@@ -66,7 +66,7 @@ def translate_medical_report(text: str) -> str:
                 temperature=0.2,
                 top_p=0.95,
                 top_k=40,
-                max_output_tokens=2048,
+                max_output_tokens=8192,
             ),
         )
 

@@ -28,7 +28,7 @@ from tahalilai.config import get_settings
 from tahalilai.schemas import AudioRequest, TranslationRequest
 from tahalilai.services.analyzer import analyze_text
 from tahalilai.services.ocr import perform_ocr
-from tahalilai.services.report import generate_pdf_report
+from tahalilai.services.report import generate_arabic_pdf_report, generate_pdf_report
 from tahalilai.services.translator import translate_medical_report
 from tahalilai.services.tts import generate_audio
 from tahalilai.utils.security import sanitize_filename, validate_file
@@ -158,7 +158,7 @@ def create_app() -> FastAPI:
                 )
 
             # Async mode (default)
-            _jobs[job_id] = {"status": "queued", "submitted_at": time.time()}
+            _jobs[job_id] = {"status": "queued", "submitted_at": time.time(), "age": age, "gender": gender}
             background_tasks.add_task(_run_pipeline, job_id, str(file_path), age, gender)
             return JSONResponse(
                 {
@@ -245,9 +245,21 @@ def create_app() -> FastAPI:
             arabic = translate_medical_report(request.text)
             if arabic.startswith("Error"):
                 return JSONResponse({"status": "error", "message": arabic}, status_code=502)
+
+            # Generate Arabic PDF in background
+            arabic_pdf_url: str | None = None
+            try:
+                ar_pdf_name = f"{request.job_id}_report_ar.pdf"
+                ar_pdf_path = settings.uploads_dir / ar_pdf_name
+                generate_arabic_pdf_report(arabic, ar_pdf_path)
+                arabic_pdf_url = f"/uploads/{ar_pdf_name}" if ar_pdf_path.exists() else None
+            except Exception as pdf_exc:
+                print(f"[{request.job_id[:8]}] Arabic PDF failed: {pdf_exc}")
+
             if "result" in _jobs[request.job_id]:
                 _jobs[request.job_id]["result"]["arabic_analysis"] = arabic
-            return {"status": "success", "arabic_text": arabic}
+                _jobs[request.job_id]["result"]["arabic_pdf_url"] = arabic_pdf_url
+            return {"status": "success", "arabic_text": arabic, "arabic_pdf_url": arabic_pdf_url}
         except Exception as exc:
             return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
 

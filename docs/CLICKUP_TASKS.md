@@ -19,8 +19,7 @@
 - [ ] Add `py.typed` marker for PEP 561 compliance
 - [ ] Add `__main__.py` CLI entry point
 - [ ] Test editable install with `pip install -e ".[dev]"`
-
-### Task 1.3 — Environment Configuration
+# Task 1.3 — Environment Configuration
 - [ ] Create `.env.example` with all required variables documented
 - [ ] Create `config.py` using `pydantic-settings`
 - [ ] Centralise all settings (LLM path, Gemini key, Tesseract path, host/port)

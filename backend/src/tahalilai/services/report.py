@@ -1,131 +1,410 @@
 """PDF report generation using fpdf2.
 
-Converts the AI analysis (which may contain light markdown) into a
-branded, printable PDF document.
+Generates branded, print-ready PDF reports from AI analysis text.
+Supports both English (LTR) and Arabic (RTL) layouts.
+
+Arabic rendering uses ``arabic-reshaper`` + ``python-bidi`` to pre-shape
+characters into visual order so they display correctly in any PDF viewer.
 """
 
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
+# ---------------------------------------------------------------------------
+# Colour palette
+# ---------------------------------------------------------------------------
+_NAVY   = (19,  82, 118)    # header background
+_BLUE   = (36, 113, 163)    # section-header strip
+_BGBLUE = (234, 242, 248)   # section body tint
+_DARK   = (28,  40,  51)    # body text
+_MUTED  = (120, 130, 140)   # footer / meta
+_WHITE  = (255, 255, 255)
+_RULE   = (189, 195, 199)   # thin divider
+_ACCENT = (93, 173, 226)    # bright accent line under banner
+
+# ---------------------------------------------------------------------------
+# Layout constants
+# ---------------------------------------------------------------------------
+_MARGIN   = 18   # left + right page margin (mm)
+_LH       = 6    # body line height (mm)
+_HDR_H    = 40   # header band height (mm)
+_INDENT   = 6    # bullet indent (mm)
+
+# ---------------------------------------------------------------------------
+# Font paths (Windows)
+# ---------------------------------------------------------------------------
+_SEGOE    = r"C:\Windows\Fonts\segoeui.ttf"
+_SEGOE_B  = r"C:\Windows\Fonts\segoeuib.ttf"
+_ARABIC   = r"C:\Windows\Fonts\arabtype.ttf"  # Arabic Typesetting
+
+
+# ---------------------------------------------------------------------------
+# FPDF subclass
+# ---------------------------------------------------------------------------
 
 class _PDFReport(FPDF):  # type: ignore[misc]
-    """Custom FPDF subclass with a branded footer."""
+    """Branded FPDF document — header band + footer with disclaimer."""
 
-    def footer(self) -> None:
-        self.set_y(-15)
-        self.set_font("helvetica", "I", 8)
+    # These attributes are set externally *before* add_page() is called
+    _font: str = "Helvetica"
+    _font_bold: str = "Helvetica"   # may equal _font when no bold registered
+    _is_rtl: bool = False
+    _subtitle: str = "Medical Lab Report Analysis"
+    _size_body: int = 10
+    _size_section: int = 11
+
+    # -- Header ----------------------------------------------------------------
+
+    def header(self) -> None:  # noqa: D401
+        # ── Navy background band ──────────────────────────────────────────────
+        self.set_fill_color(*_NAVY)
+        self.rect(0, 0, self.w, _HDR_H, style="F")
+
+        # ── Brand name (always Latin, Helvetica) ──────────────────────────────
+        self.set_text_color(*_WHITE)
+        self.set_font("Helvetica", "B", 22)
+        self.set_xy(_MARGIN, 8)
+        self.cell(0, 11, "TahalilAI", align="L")
+
+        # ── Date top-right ────────────────────────────────────────────────────
+        date_str = datetime.now().strftime("%d %b %Y")
+        self.set_font("Helvetica", "", 8)
+        self.set_xy(0, 10)
+        self.cell(self.w - _MARGIN, 7, date_str, align="R")
+
+        # ── Sub-title line ────────────────────────────────────────────────────
+        self.set_xy(_MARGIN, 22)
+        if self._is_rtl:
+            # Switch to the registered Arabic font before rendering Arabic text
+            try:
+                self.set_font(self._font, "", 10)
+            except Exception:
+                pass  # stay on Helvetica — subtitle may be blank
+            sub = _prepare_arabic(self._subtitle)
+            try:
+                self.cell(0, 7, sub, align="R")
+            except Exception:
+                pass  # swallow encoding errors for edge cases
+        else:
+            self.set_font("Helvetica", "", 10)
+            self.cell(0, 7, self._subtitle, align="L")
+
+        # ── Accent underline ──────────────────────────────────────────────────
+        self.set_draw_color(*_ACCENT)
+        self.set_line_width(0.8)
+        self.line(_MARGIN, _HDR_H, self.w - _MARGIN, _HDR_H)
+        self.set_line_width(0.2)
+
+        # ── Reset cursor below header ─────────────────────────────────────────
+        self.set_y(_HDR_H + 5)
+        self.set_text_color(*_DARK)
+
+    # -- Footer ----------------------------------------------------------------
+
+    def footer(self) -> None:  # noqa: D401
+        self.set_y(-16)
+        self.set_draw_color(*_RULE)
+        self.set_line_width(0.3)
+        self.line(_MARGIN, self.get_y(), self.w - _MARGIN, self.get_y())
+        self.ln(1)
+        self.set_font("Helvetica", "I", 7)
+        self.set_text_color(*_MUTED)
         self.cell(
-            0,
-            10,
-            f"Page {self.page_no()} | Disclaimer: Generated by AI. Consult a doctor.",
-            new_x=XPos.RIGHT,
-            new_y=YPos.TOP,
+            0, 5,
+            f"Page {self.page_no()}  |  TahalilAI  |  "
+            "AI-generated report - always consult a qualified physician.",
             align="C",
         )
 
 
-def generate_pdf_report(text_content: str, output_path: str | Path) -> Path:
-    """Generate a PDF report from the analysis text.
+# ---------------------------------------------------------------------------
+# Font setup
+# ---------------------------------------------------------------------------
 
-    Handles pseudo-markdown headers (``---``, ``**bold**``, bullet lists)
-    and attempts to load a Unicode font for Arabic support.
+def _setup_english_fonts(pdf: _PDFReport) -> None:
+    """Register Segoe UI (or fall back to Helvetica) and configure pdf."""
+    if os.path.exists(_SEGOE) and os.path.exists(_SEGOE_B):
+        try:
+            pdf.add_font("Segoe", "",  _SEGOE)
+            pdf.add_font("Segoe", "B", _SEGOE_B)
+            pdf._font      = "Segoe"
+            pdf._font_bold = "Segoe"
+            pdf._size_body    = 10
+            pdf._size_section = 11
+            return
+        except Exception:
+            pass
+    # Helvetica is built-in — always available
+    pdf._font      = "Helvetica"
+    pdf._font_bold = "Helvetica"
+    pdf._size_body    = 10
+    pdf._size_section = 11
+
+
+def _setup_arabic_fonts(pdf: _PDFReport) -> None:
+    """Register Arabic font (or fall back to Segoe / Helvetica)."""
+    for path, name in ((_ARABIC, "Arabic"), (_SEGOE, "Segoe")):
+        if os.path.exists(path):
+            try:
+                pdf.add_font(name, "", path)
+                pdf._font      = name
+                pdf._font_bold = name   # no separate bold for these fonts
+                pdf._size_body    = 12  # Arabic glyphs read better at 12 pt
+                pdf._size_section = 13
+                return
+            except Exception:
+                continue
+    pdf._font      = "Helvetica"
+    pdf._font_bold = "Helvetica"
+    pdf._size_body    = 10
+    pdf._size_section = 11
+
+
+# ---------------------------------------------------------------------------
+# Line classification
+# ---------------------------------------------------------------------------
+
+_RE_SECTION = re.compile(r"^\*\*(.+?)\*\*\s*:?\s*$")
+_RE_RULE    = re.compile(r"^-{3,}$")
+_RE_BULLET  = re.compile(r"^-\s+(.+)")
+
+
+def _classify(raw: str) -> tuple[str, str]:
+    """Return *(kind, cleaned_text)* for a single markdown line.
+
+    Kinds: ``"blank"`` | ``"rule"`` | ``"section"`` | ``"bullet"`` | ``"normal"``
+    """
+    line = raw.strip()
+    if not line:
+        return "blank", ""
+    if _RE_RULE.match(line):
+        return "rule", ""
+    m = _RE_SECTION.match(line)
+    if m:
+        return "section", m.group(1).strip()
+    m = _RE_BULLET.match(line)
+    if m:
+        return "bullet", re.sub(r"\*\*(.+?)\*\*", r"\1", m.group(1))
+    return "normal", re.sub(r"\*\*(.+?)\*\*", r"\1", line)
+
+
+# ---------------------------------------------------------------------------
+# English renderer
+# ---------------------------------------------------------------------------
+
+def _render_english(pdf: _PDFReport, text: str) -> None:
+    """Write the English analysis into *pdf*."""
+    font  = pdf._font
+    fontb = pdf._font_bold
+    sb    = pdf._size_body
+    ss    = pdf._size_section
+    cw    = pdf.w - 2 * _MARGIN   # usable content width
+
+    for raw in text.split("\n"):
+        kind, content = _classify(raw)
+
+        if kind == "blank":
+            pdf.ln(2)
+
+        elif kind == "rule":
+            pdf.ln(3)
+            pdf.set_draw_color(*_RULE)
+            pdf.set_line_width(0.3)
+            pdf.line(_MARGIN, pdf.get_y(), pdf.w - _MARGIN, pdf.get_y())
+            pdf.ln(4)
+
+        elif kind == "section":
+            pdf.ln(4)
+            # Filled blue banner for section header
+            pdf.set_fill_color(*_BLUE)
+            pdf.set_text_color(*_WHITE)
+            try:
+                pdf.set_font(fontb, "B", ss)
+            except Exception:
+                pdf.set_font("Helvetica", "B", ss)
+            pdf.multi_cell(0, 8, f"  {content}", fill=True, align="L")
+            pdf.set_text_color(*_DARK)
+            pdf.ln(1)
+
+        elif kind == "bullet":
+            try:
+                pdf.set_font(font, "", sb)
+            except Exception:
+                pdf.set_font("Helvetica", "", sb)
+            pdf.set_text_color(*_DARK)
+            # Bullet symbol + text with indent
+            pdf.set_x(_MARGIN + _INDENT)
+            try:
+                pdf.multi_cell(cw - _INDENT, _LH, f"\u2022  {content}", align="L")
+            except Exception:
+                _safe_cell(pdf, content)
+
+        else:  # normal
+            try:
+                pdf.set_font(font, "", sb)
+            except Exception:
+                pdf.set_font("Helvetica", "", sb)
+            pdf.set_text_color(*_DARK)
+            try:
+                pdf.multi_cell(0, _LH, content, align="J")
+            except Exception:
+                _safe_cell(pdf, content)
+
+
+# ---------------------------------------------------------------------------
+# Arabic renderer
+# ---------------------------------------------------------------------------
+
+def _render_arabic(pdf: _PDFReport, text: str) -> None:
+    """Write Arabic (RTL) analysis into *pdf*."""
+    font = pdf._font
+    ss   = pdf._size_section
+    sb   = pdf._size_body
+
+    for raw in text.split("\n"):
+        kind, content = _classify(raw)
+
+        if kind == "blank":
+            pdf.ln(2)
+
+        elif kind == "rule":
+            pdf.ln(3)
+            pdf.set_draw_color(*_RULE)
+            pdf.set_line_width(0.3)
+            pdf.line(_MARGIN, pdf.get_y(), pdf.w - _MARGIN, pdf.get_y())
+            pdf.ln(4)
+
+        elif kind == "section":
+            pdf.ln(4)
+            visual = _prepare_arabic(content)
+            pdf.set_fill_color(*_BLUE)
+            pdf.set_text_color(*_WHITE)
+            try:
+                pdf.set_font(font, "", ss)
+            except Exception:
+                pdf.set_font("Helvetica", "", ss)
+            pdf.multi_cell(0, 9, f"  {visual}", fill=True, align="R")
+            pdf.set_text_color(*_DARK)
+            pdf.ln(1)
+
+        elif kind == "bullet":
+            visual = _prepare_arabic(content)
+            try:
+                pdf.set_font(font, "", sb)
+            except Exception:
+                pdf.set_font("Helvetica", "", sb)
+            pdf.set_text_color(*_DARK)
+            try:
+                pdf.multi_cell(0, _LH + 1, f"{visual}  \u2022", align="R")
+            except Exception:
+                _safe_cell_r(pdf, visual)
+
+        else:  # normal
+            visual = _prepare_arabic(content)
+            try:
+                pdf.set_font(font, "", sb)
+            except Exception:
+                pdf.set_font("Helvetica", "", sb)
+            pdf.set_text_color(*_DARK)
+            try:
+                pdf.multi_cell(0, _LH + 1, visual, align="R")
+            except Exception:
+                _safe_cell_r(pdf, visual)
+
+
+# ---------------------------------------------------------------------------
+# Arabic text preparation
+# ---------------------------------------------------------------------------
+
+def _prepare_arabic(text: str) -> str:
+    """Reshape + apply bidi so Arabic text renders correctly in LTR PDF engines."""
+    if not text:
+        return text
+    try:
+        import arabic_reshaper            # type: ignore[import-untyped]
+        from bidi.algorithm import get_display  # type: ignore[import-untyped]
+        return get_display(arabic_reshaper.reshape(text))
+    except ImportError:
+        return text
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def generate_pdf_report(text_content: str, output_path: str | Path) -> Path:
+    """Generate a styled English PDF report from analysis text.
 
     Args:
         text_content: Analysis text (may contain light markdown).
-        output_path: Destination path for the PDF.
+        output_path: Destination path for the ``.pdf`` file.
 
     Returns:
         The :class:`~pathlib.Path` to the generated file.
     """
     output_path = Path(output_path)
+
     pdf = _PDFReport()
+    pdf._subtitle = "Medical Lab Report Analysis"
+    pdf._is_rtl   = False
+    _setup_english_fonts(pdf)
+    pdf.set_margins(_MARGIN, _HDR_H + 8, _MARGIN)
+    pdf.set_auto_page_break(auto=True, margin=22)
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
 
-    has_unicode = _try_load_unicode_font(pdf)
+    _render_english(pdf, text_content)
+    pdf.output(str(output_path))
+    return output_path
 
-    # Title
-    _set_font(pdf, has_unicode, size=16, style="B")
-    pdf.cell(
-        0, 10, "TahalilAI Medical Analysis Report",
-        new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C",
-    )
-    pdf.ln(5)
-    _set_font(pdf, has_unicode, size=11)
 
-    for line in text_content.split("\n"):
-        clean = line.strip()
-        if not clean:
-            pdf.ln(2)
-            continue
+def generate_arabic_pdf_report(text_content: str, output_path: str | Path) -> Path:
+    """Generate a styled Arabic (RTL) PDF report from translated analysis text.
 
-        display = clean if has_unicode else _encode_latin1(clean)
-        if not display:
-            continue
+    Args:
+        text_content: Arabic analysis text (may contain light markdown).
+        output_path: Destination path for the ``.pdf`` file.
 
-        # Prevent "Not enough horizontal space" edge-case
-        if pdf.get_x() > 180:
-            pdf.ln()
+    Returns:
+        The :class:`~pathlib.Path` to the generated file.
+    """
+    output_path = Path(output_path)
 
-        if "---" in clean:
-            pdf.ln(5)
-            _set_font(pdf, has_unicode, size=12, style="B")
-            _safe_multi_cell(pdf, display.replace("-", "").strip())
-            _set_font(pdf, has_unicode, size=11)
-        elif clean.startswith("**") or clean.endswith("**") or clean.startswith("- **"):
-            _safe_multi_cell(pdf, display.replace("**", ""))
-        else:
-            _safe_multi_cell(pdf, display)
+    pdf = _PDFReport()
+    pdf._subtitle = "تحليل نتائج الفحوصات المخبرية"  # processed once in header()
+    pdf._is_rtl   = True
+    _setup_arabic_fonts(pdf)
+    pdf.set_margins(_MARGIN, _HDR_H + 8, _MARGIN)
+    pdf.set_auto_page_break(auto=True, margin=22)
+    pdf.add_page()
 
+    _render_arabic(pdf, text_content)
     pdf.output(str(output_path))
     return output_path
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Internal utilities
 # ---------------------------------------------------------------------------
 
-_WINDOWS_ARIAL = r"C:\Windows\Fonts\arial.ttf"
-
-
-def _try_load_unicode_font(pdf: FPDF) -> bool:
-    """Attempt to load Arial for Unicode / Arabic support."""
-    if not os.path.exists(_WINDOWS_ARIAL):
-        pdf.set_font("Helvetica", size=11)
-        return False
+def _safe_cell(pdf: _PDFReport, text: str) -> None:
+    """Render *text* as a plain cell, silently truncating if needed."""
     try:
-        pdf.add_font("ArialUnicode", "", _WINDOWS_ARIAL)
-        pdf.set_font("ArialUnicode", size=11)
-        return True
+        safe = text.encode("latin-1", "ignore").decode("latin-1")
+        pdf.multi_cell(0, _LH, safe, align="L")
     except Exception:
-        pdf.set_font("Helvetica", size=11)
-        return False
+        pass
 
 
-def _set_font(pdf: FPDF, has_unicode: bool, size: int, style: str = "") -> None:
-    """Set the active font, respecting Unicode font availability."""
-    if has_unicode:
-        pdf.set_font("ArialUnicode", "", size)
-    else:
-        pdf.set_font("Helvetica", style, size)
-
-
-def _encode_latin1(text: str) -> str:
-    """Strip characters that cannot be encoded in Latin-1."""
-    return text.encode("latin-1", "ignore").decode("latin-1")
-
-
-def _safe_multi_cell(pdf: FPDF, text: str) -> None:
-    """Write a multi-cell with graceful error recovery."""
+def _safe_cell_r(pdf: _PDFReport, text: str) -> None:
+    """Render *text* right-aligned, silently truncating if needed."""
     try:
-        pdf.multi_cell(0, 7, text)
+        pdf.multi_cell(0, _LH + 1, text, align="R")
     except Exception:
-        import contextlib
-
-        with contextlib.suppress(Exception):
-            pdf.cell(0, 7, text[:80] + "...", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pass

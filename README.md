@@ -86,7 +86,7 @@ python -m venv .venv
 # Linux/Mac: source .venv/bin/activate
 
 pip install -e ".[dev]"       # install package + dev tools
-python -m tahalilai           # start server on :8000
+python -m tahalilai          # start server on :8000
 ```
 
 ### 3. Frontend
@@ -125,7 +125,7 @@ pip install pre-commit
 pre-commit install
 pre-commit run --all-files
 ```
-
+ 
 ### Benchmark
 
 ```bash

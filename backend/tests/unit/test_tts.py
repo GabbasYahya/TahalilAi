@@ -27,7 +27,6 @@ class TestStripMarkdown:
 class TestGenerateAudio:
     """Tests for ``generate_audio`` with mocked gTTS."""
 
-    @patch("tahalilai.services.tts._QWEN_AVAILABLE", False)
     @patch("tahalilai.services.tts.gTTS")
     def test_gtts_fallback(self, mock_gtts_cls: MagicMock, tmp_path: Path) -> None:
         mock_tts = MagicMock()
@@ -40,7 +39,6 @@ class TestGenerateAudio:
         mock_gtts_cls.assert_called_once()
         mock_tts.save.assert_called_once_with(str(output))
 
-    @patch("tahalilai.services.tts._QWEN_AVAILABLE", False)
     @patch("tahalilai.services.tts.gTTS")
     def test_gtts_failure(self, mock_gtts_cls: MagicMock, tmp_path: Path) -> None:
         mock_gtts_cls.side_effect = Exception("Network error")
