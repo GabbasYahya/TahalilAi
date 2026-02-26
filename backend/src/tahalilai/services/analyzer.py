@@ -1,7 +1,7 @@
-"""Local LLM analysis of medical lab results via llama-cli.
+"""Medical lab results analysis via Gemini (primary) with local LLM fallback.
 
-Uses a quantised Ministral model executed through the llama.cpp CLI to
-produce patient-friendly explanations of laboratory values.
+Uses Google Gemini API for analysis when available; falls back to the
+quantised Ministral model via llama.cpp CLI when offline or the API fails.
 """
 
 from __future__ import annotations
@@ -12,6 +12,15 @@ import subprocess
 import sys
 
 from tahalilai.config import get_settings
+
+# Graceful handling when SDK is not installed (e.g. minimal test environments)
+try:
+    from google import genai
+    from google.genai import types as genai_types
+
+    _GEMINI_AVAILABLE = True
+except ImportError:
+    _GEMINI_AVAILABLE = False
 
 _SYSTEM_PROMPT = """\
 You are an accurate Medical Results Explainer.
@@ -39,7 +48,10 @@ def analyze_text(
     age: str | None = None,
     gender: str | None = None,
 ) -> str:
-    """Analyse OCR-extracted lab results using the local LLM.
+    """Analyse OCR-extracted lab results.
+
+    Tries Google Gemini first; falls back to the local LLM when the API key
+    is absent or the request fails for any reason (network error, quota, etc.).
 
     Args:
         ocr_text: Raw text obtained from OCR.
@@ -51,7 +63,74 @@ def analyze_text(
     """
     settings = get_settings()
 
-    print("Running Medical AI Analysis (English Only)...", file=sys.stderr)
+    if _GEMINI_AVAILABLE and settings.gemini_api_key:
+        print("Attempting analysis via Gemini API...", file=sys.stderr)
+        result = _analyze_with_gemini(ocr_text, age, gender, settings)
+        if not result.startswith("Error"):
+            return result
+        print(f"Gemini failed ({result}), falling back to local model.", file=sys.stderr)
+    else:
+        reason = "SDK not installed" if not _GEMINI_AVAILABLE else "no API key"
+        print(f"Gemini unavailable ({reason}) — using local model.", file=sys.stderr)
+
+    return _analyze_with_local_llm(ocr_text, age, gender, settings)
+
+
+# ---------------------------------------------------------------------------
+# Gemini backend
+# ---------------------------------------------------------------------------
+
+
+def _analyze_with_gemini(
+    ocr_text: str,
+    age: str | None,
+    gender: str | None,
+    settings,
+) -> str:
+    """Call the Gemini API and return the analysis text."""
+    try:
+        print("Sending analysis request to Gemini API...", file=sys.stderr)
+
+        patient_ctx = f"Patient: {age}yrs, {gender}.\n" if age and gender else ""
+        user_input = f"{patient_ctx}RESULTS:\n{ocr_text}\n\nExplain these results now."
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=user_input,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=_SYSTEM_PROMPT,
+                temperature=0.3,
+                top_p=0.95,
+                top_k=40,
+                max_output_tokens=2048,
+            ),
+        )
+
+        text = response.text.strip()
+        if not text or len(text) < 50:
+            return "Error: Gemini returned empty output."
+
+        print(f"Gemini analysis complete ({len(text)} chars)", file=sys.stderr)
+        return text
+
+    except Exception as exc:
+        return f"Error: Gemini request failed: {exc}"
+
+
+# ---------------------------------------------------------------------------
+# Local LLM backend
+# ---------------------------------------------------------------------------
+
+
+def _analyze_with_local_llm(
+    ocr_text: str,
+    age: str | None,
+    gender: str | None,
+    settings,
+) -> str:
+    """Run the local Ministral model via llama-cli."""
+    print("Running Medical AI Analysis (local model)...", file=sys.stderr)
 
     patient_ctx = f"Patient: {age}yrs, {gender}.\n" if age and gender else ""
     user_input = f"{patient_ctx}RESULTS:\n{ocr_text}\n\nExplain these results now."
