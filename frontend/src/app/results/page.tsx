@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
@@ -27,6 +27,13 @@ export default function ResultsPage() {
     const [translating, setTranslating] = useState(false);
     const [audioState, setAudioState] = useState<"idle" | "generating" | "ready">("idle");
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+    // ── Chat state ──────────────────────────────────────────────────────
+    type ChatMessage = { role: "user" | "assistant"; content: string };
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatInput, setChatInput] = useState("");
+    const [chatLoading, setChatLoading] = useState(false);
+    const chatBottomRef = useRef<HTMLDivElement>(null);
     
     useEffect(() => {
         const stored = localStorage.getItem("analysisResult");
@@ -164,6 +171,36 @@ export default function ResultsPage() {
         localStorage.removeItem("analysisResult");
         router.push("/upload");
     };
+
+    // ── Chat handlers ───────────────────────────────────────────────────
+    useEffect(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatMessages, chatLoading]);
+
+    const handleChatSubmit = useCallback(async () => {
+        if (!chatInput.trim() || !analysisData?.job_id || chatLoading) return;
+        const question = chatInput.trim();
+        setChatInput("");
+        setChatMessages(prev => [...prev, { role: "user", content: question }]);
+        setChatLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/chat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ job_id: analysisData.job_id, message: question }),
+            });
+            const json = await res.json();
+            const answer = json.answer || "Sorry, I could not generate a response. Please try again.";
+            setChatMessages(prev => [...prev, { role: "assistant", content: answer }]);
+        } catch {
+            setChatMessages(prev => [
+                ...prev,
+                { role: "assistant", content: "Could not reach the AI service. Is the backend running?" },
+            ]);
+        } finally {
+            setChatLoading(false);
+        }
+    }, [chatInput, analysisData, chatLoading]);
 
     if (!analysisData) return null;
 
@@ -310,6 +347,123 @@ export default function ResultsPage() {
                         Analyze Another Document
                     </button>
                 </div>
+
+                {/* ─── AI Chat ─── */}
+                {analysisData.job_id && (
+                    <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200/50 ring-1 ring-slate-100">
+
+                        {/* Chat header */}
+                        <div className="border-b border-slate-100 bg-gradient-to-r from-violet-600 to-indigo-600 px-8 py-5 text-white">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 className="font-bold tracking-tight">Ask About Your Results</h2>
+                                    <p className="text-xs text-indigo-100">AI assistant based on your specific lab report</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Message list */}
+                        <div className="max-h-96 min-h-[80px] overflow-y-auto px-6 py-5 space-y-4">
+                            {chatMessages.length === 0 && (
+                                <p className="text-center text-sm text-slate-400 py-4">
+                                    Have questions about your results? Ask anything below.
+                                </p>
+                            )}
+                            {chatMessages.map((msg, i) => (
+                                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    {msg.role === "assistant" && (
+                                        <div className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 self-end mb-0.5">
+                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                    <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                                        msg.role === "user"
+                                            ? "bg-indigo-600 text-white rounded-br-sm"
+                                            : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                                    }`}>
+                                        <article className="prose prose-sm max-w-none prose-p:my-0 prose-li:my-0 prose-headings:my-1 prose-strong:font-semibold prose-p:leading-relaxed">
+                                            <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                                        </article>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Typing indicator */}
+                            {chatLoading && (
+                                <div className="flex justify-start">
+                                    <div className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                        </svg>
+                                    </div>
+                                    <div className="rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-3">
+                                        <div className="flex items-center gap-1">
+                                            <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+                                            <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+                                            <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={chatBottomRef} />
+                        </div>
+
+                        {/* Suggested questions (shown only before first message) */}
+                        {chatMessages.length === 0 && (
+                            <div className="px-6 pb-3 flex flex-wrap gap-2">
+                                {[
+                                    "What do these results mean overall?",
+                                    "Which values are abnormal?",
+                                    "Should I be concerned?",
+                                    "What should I ask my doctor?",
+                                ].map((q) => (
+                                    <button
+                                        key={q}
+                                        onClick={() => setChatInput(q)}
+                                        className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                                    >
+                                        {q}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Input bar */}
+                        <div className="border-t border-slate-100 px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="text"
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleChatSubmit(); }}
+                                    placeholder="Ask a question about your results…"
+                                    disabled={chatLoading}
+                                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 disabled:opacity-50 transition"
+                                />
+                                <button
+                                    onClick={handleChatSubmit}
+                                    disabled={chatLoading || !chatInput.trim()}
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    aria-label="Send"
+                                >
+                                    <svg className="h-4 w-4 translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <p className="mt-2 text-xs text-slate-400">
+                                The assistant uses your specific lab report as context. It cannot diagnose or prescribe.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* ─── Disclaimer ─── */}
                 <div className="flex items-start gap-3 rounded-2xl bg-amber-50 p-5 text-sm text-amber-900 border border-amber-100">

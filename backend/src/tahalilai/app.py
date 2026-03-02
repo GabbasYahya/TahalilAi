@@ -25,8 +25,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from tahalilai.config import get_settings
-from tahalilai.schemas import AudioRequest, TranslationRequest
+from tahalilai.schemas import AudioRequest, ChatRequest, TranslationRequest
 from tahalilai.services.analyzer import analyze_text
+from tahalilai.services.chat import answer_question
 from tahalilai.services.ocr import perform_ocr
 from tahalilai.services.report import generate_arabic_pdf_report, generate_pdf_report
 from tahalilai.services.translator import translate_medical_report
@@ -233,6 +234,44 @@ def create_app() -> FastAPI:
 
         return {"status": job.get("audio_status", "not_started")}
 
+    # ── Follow-up chat ─────────────────────────────────────────────────
+
+    @application.post("/chat", response_model=None)
+    async def chat(request: ChatRequest) -> JSONResponse | dict[str, str]:
+        """Answer a follow-up question about a completed analysis."""
+        job = _jobs.get(request.job_id)
+        if not job:
+            return JSONResponse(
+                {"status": "error", "message": "Job not found"}, status_code=404
+            )
+        if job.get("status") != "completed":
+            return JSONResponse(
+                {"status": "error", "message": "Analysis not yet completed"},
+                status_code=400,
+            )
+
+        ocr_text: str = job.get("ocr_text", "")
+        analysis: str = job.get("result", {}).get("analysis", "")
+        history: list[dict[str, str]] = job.get("conversation", [])
+
+        if not analysis:
+            return JSONResponse(
+                {"status": "error", "message": "No analysis found for this job"},
+                status_code=400,
+            )
+
+        answer = answer_question(ocr_text, analysis, history, request.message)
+
+        if answer.startswith("Error"):
+            return JSONResponse({"status": "error", "message": answer}, status_code=502)
+
+        # Persist conversation history in the job store
+        history.append({"role": "user", "content": request.message})
+        history.append({"role": "assistant", "content": answer})
+        _jobs[request.job_id]["conversation"] = history
+
+        return {"status": "success", "answer": answer}
+
     # ── Translation ────────────────────────────────────────────────────
 
     @application.post("/translate", response_model=None)
@@ -300,6 +339,7 @@ def _run_pipeline(
             raise RuntimeError(msg)
 
         print(f"[{tag}] OCR: {len(ocr_text)} chars in {ocr_s}s")
+        _jobs[job_id]["ocr_text"] = ocr_text
 
         # Step 2: AI analysis
         _jobs[job_id]["message"] = "AI Doctor is analyzing your results..."

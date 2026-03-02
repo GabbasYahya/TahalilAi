@@ -20,3 +20,12 @@ class TranslationRequest(BaseModel):
 
     text: str = Field(..., min_length=1, description="English text to translate")
     job_id: str = Field(..., description="UUID of the analysis job")
+
+
+class ChatRequest(BaseModel):
+    """Body for ``POST /chat``."""
+
+    job_id: str = Field(..., description="UUID of the completed analysis job")
+    message: str = Field(
+        ..., min_length=1, max_length=1000, description="Patient's follow-up question"
+    )
