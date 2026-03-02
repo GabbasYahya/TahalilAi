@@ -103,7 +103,7 @@ def _analyze_with_gemini(
                 temperature=0.3,
                 top_p=0.95,
                 top_k=40,
-                max_output_tokens=2048,
+                max_output_tokens=8192,
             ),
         )
 
@@ -143,9 +143,9 @@ def _analyze_with_local_llm(
         "-p",
         full_prompt,
         "-n",
-        "1024",
+        "2048",
         "-c",
-        "4096",
+        "6144",
         "--temp",
         "0.3",
         "--no-display-prompt",
