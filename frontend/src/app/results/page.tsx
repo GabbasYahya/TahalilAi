@@ -6,16 +6,33 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { RecommendedDoctors } from "@/components/RecommendedDoctors";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+interface RecommendedDoctor {
+    id: number;
+    title: string;
+    name: string;
+    speciality: string;
+    phone: string;
+    address: string;
+    city: string;
+    image_url: string;
+    profile_url: string;
+}
 
 interface AnalysisData {
     job_id?: string;
     text: string;
     arabicText?: string;
-    audioUrl?: string; 
+    audioUrl?: string;
     pdfUrl?: string;
+    arabicPdfUrl?: string;
     timestamp: number;
+    recommended_specialities?: string[];
+    urgency?: string;
+    recommended_doctors?: RecommendedDoctor[];
 }
 
 export default function ResultsPage() {
@@ -138,7 +155,7 @@ export default function ResultsPage() {
             
             const json = await res.json();
             if (json.status === "success") {
-                const newData = { ...analysisData, arabicText: json.arabic_text };
+                const newData = { ...analysisData, arabicText: json.arabic_text, arabicPdfUrl: json.arabic_pdf_url ?? undefined };
                 setAnalysisData(newData);
                 localStorage.setItem("analysisResult", JSON.stringify(newData));
                 setActiveTab("arabic");
@@ -158,13 +175,11 @@ export default function ResultsPage() {
     };
 
     const handleDownloadPDF = () => {
-        if (!analysisData?.pdfUrl) return;
-        const link = document.createElement("a");
-        link.href = `${API_URL}${analysisData.pdfUrl}`;
-        link.setAttribute("download", "TahalilAI-Report.pdf");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const url = activeTab === "arabic" && analysisData?.arabicPdfUrl
+            ? analysisData.arabicPdfUrl
+            : analysisData?.pdfUrl;
+        if (!url) return;
+        window.open(`${API_URL}${url}`, "_blank");
     };
 
     const handleNewAnalysis = () => {
@@ -222,7 +237,7 @@ export default function ResultsPage() {
                     
                     <div className="flex items-center gap-2">
                         {/* Download PDF */}
-                        {analysisData.pdfUrl && (
+                        {(analysisData.pdfUrl || analysisData.arabicPdfUrl) && (
                             <button
                                 onClick={handleDownloadPDF}
                                 className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 transition-all"
@@ -230,7 +245,7 @@ export default function ResultsPage() {
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                Download PDF
+                                {isArabic ? "تحميل PDF" : "Download PDF"}
                             </button>
                         )}
                         
@@ -334,6 +349,30 @@ export default function ResultsPage() {
                         </article>
                     </div>
                 </div>
+
+                {/* ─── Critical Alert ─── */}
+                {analysisData.urgency === "urgent" && (
+                    <div className="flex items-start gap-3 rounded-2xl bg-red-50 p-5 text-sm text-red-900 border border-red-200">
+                        <svg className="h-6 w-6 shrink-0 text-red-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <p className="font-semibold text-red-800">Critical Values Detected</p>
+                            <p className="text-red-700 leading-relaxed">
+                                Some of your results require prompt medical attention. Please consult a doctor as soon as possible.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── Recommended Doctors ─── */}
+                {analysisData.recommended_doctors && analysisData.recommended_doctors.length > 0 && (
+                    <RecommendedDoctors
+                        doctors={analysisData.recommended_doctors}
+                        specialities={analysisData.recommended_specialities || []}
+                        urgency={analysisData.urgency || "routine"}
+                    />
+                )}
 
                 {/* ─── Action Bar ─── */}
                 <div className="flex flex-wrap items-center justify-center gap-3">

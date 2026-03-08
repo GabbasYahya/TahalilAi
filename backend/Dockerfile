@@ -1,0 +1,56 @@
+# ── Stage 1: builder — install Python deps ──────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Install build tools needed to compile some wheels
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+COPY src/ ./src/
+
+# Install the package and all runtime deps into /app/.venv
+RUN pip install --no-cache-dir --prefix=/install -e .
+
+
+# ── Stage 2: runtime ─────────────────────────────────────────────────────────
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps:
+#   tesseract-ocr        — OCR engine
+#   tesseract-ocr-eng/fra/ara — language packs
+#   libmagic1            — file-type detection (python-magic on Linux)
+#   fonts-liberation     — free Liberation Sans (replaces Segoe UI for PDFs)
+#   fonts-arabeyes       — open-source Arabic fonts for PDF Arabic rendering
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-fra \
+    tesseract-ocr-ara \
+    libmagic1 \
+    fonts-liberation \
+    fonts-arabeyes \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+# Copy application source
+COPY src/ ./src/
+COPY pyproject.toml ./
+
+# Re-install in editable mode so the package is importable
+RUN pip install --no-cache-dir -e .
+
+# Directory for uploaded files and generated PDFs/audio
+# This is mounted as a volume in docker-compose so data persists
+RUN mkdir -p uploads
+
+EXPOSE 8000
+
+# TESSERACT_CMD is not needed — tesseract is on PATH via apt-get
+CMD ["python", "-m", "tahalilai"]

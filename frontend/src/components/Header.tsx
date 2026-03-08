@@ -24,7 +24,15 @@ export function Header() {
           </span>
         </Link>
 
-        <LanguageSwitcher />
+        <div className="flex items-center gap-4">
+          <Link
+            href="/doctors"
+            className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors"
+          >
+            {t("doctors.nav")}
+          </Link>
+          <LanguageSwitcher />
+        </div>
       </div>
     </header>
   );

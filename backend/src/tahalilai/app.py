@@ -5,7 +5,10 @@ Provides endpoints for:
 * ``GET  /status/{job_id}`` — poll for analysis progress / results.
 * ``POST /generate-audio`` — on-demand TTS for completed analyses.
 * ``GET  /audio-status/{job_id}`` — poll for audio readiness.
+* ``POST /chat`` — follow-up Q&A about analysis results.
 * ``POST /translate`` — translate an analysis to Arabic via Gemini.
+* ``POST /send-email`` — send report via Gmail SMTP.
+* ``POST /send-whatsapp`` — send report summary via WhatsApp.
 * ``GET  /`` — health-check.
 """
 
@@ -25,13 +28,22 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from tahalilai.config import get_settings
-from tahalilai.schemas import AudioRequest, ChatRequest, TranslationRequest
+from tahalilai.services.cleanup import run_cleanup_loop
+from tahalilai.schemas import (
+    AudioRequest,
+    ChatRequest,
+    EmailRequest,
+    TranslationRequest,
+    WhatsAppRequest,
+)
 from tahalilai.services.analyzer import analyze_text
 from tahalilai.services.chat import answer_question
+from tahalilai.services.email_sender import send_report_email
 from tahalilai.services.ocr import perform_ocr
 from tahalilai.services.report import generate_arabic_pdf_report, generate_pdf_report
 from tahalilai.services.translator import translate_medical_report
 from tahalilai.services.tts import generate_audio
+from tahalilai.services.whatsapp import send_whatsapp_message
 from tahalilai.utils.security import sanitize_filename, validate_file
 
 # In-memory job store — replace with Redis / a database for production
@@ -45,9 +57,41 @@ _jobs: dict[str, dict[str, Any]] = {}
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
-    """Lightweight startup — TTS model is lazy-loaded on first audio request."""
-    print("TahalilAI server ready (TTS deferred to first request).")
+    """Startup / shutdown lifecycle handler.
+
+    * Launches a background cleanup task that periodically removes expired
+      files from ``uploads/`` (age limit and interval from config).
+    * TTS model is still lazy-loaded on the first audio request.
+    """
+    import asyncio
+
+    from tahalilai.database import Base, engine
+    from tahalilai.models import Doctor  # noqa: F401 — register model
+
+    Base.metadata.create_all(bind=engine)
+
+    cfg = get_settings()
+    cleanup_task = asyncio.create_task(
+        run_cleanup_loop(
+            uploads_dir=cfg.uploads_dir,
+            max_age_hours=cfg.uploads_max_age_hours,
+            interval_seconds=cfg.uploads_cleanup_interval_seconds,
+        )
+    )
+    print(
+        f"TahalilAI server ready — upload cleanup every "
+        f"{cfg.uploads_cleanup_interval_seconds}s, "
+        f"max age {cfg.uploads_max_age_hours}h."
+    )
+
     yield
+
+    # Cancel the cleanup loop gracefully on shutdown
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
     print("TahalilAI server shutting down.")
 
 
@@ -76,6 +120,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ── Routers ─────────────────────────────────────────────────────
+    from tahalilai.routers.doctors import router as doctors_router
+
+    application.include_router(doctors_router)
+
     application.mount("/uploads", StaticFiles(directory=str(uploads)), name="uploads")
 
     # ── Health-check ───────────────────────────────────────────────────
@@ -100,6 +149,7 @@ def create_app() -> FastAPI:
     _FILE_FIELD = File(...)
     _AGE_FIELD = Form(None)
     _GENDER_FIELD = Form(None)
+    _CITY_FIELD = Form(None)
     _WAIT_FIELD = Form(False)
 
     @application.post("/analyze")
@@ -108,6 +158,7 @@ def create_app() -> FastAPI:
         file: UploadFile = _FILE_FIELD,
         age: str = _AGE_FIELD,
         gender: str = _GENDER_FIELD,
+        city: str = _CITY_FIELD,
         wait_for_result: bool = _WAIT_FIELD,
     ) -> JSONResponse:
         """Upload a medical report and start the analysis pipeline."""
@@ -136,7 +187,7 @@ def create_app() -> FastAPI:
                 loop = __import__("asyncio").get_running_loop()
                 with ThreadPoolExecutor(max_workers=1) as pool:
                     await loop.run_in_executor(
-                        pool, _run_pipeline, job_id, str(file_path), age, gender
+                        pool, _run_pipeline, job_id, str(file_path), age, gender, city
                     )
                 job_data = _jobs[job_id]
                 elapsed = round(time.time() - job_data.get("submitted_at", 0), 1)
@@ -159,8 +210,8 @@ def create_app() -> FastAPI:
                 )
 
             # Async mode (default)
-            _jobs[job_id] = {"status": "queued", "submitted_at": time.time(), "age": age, "gender": gender}
-            background_tasks.add_task(_run_pipeline, job_id, str(file_path), age, gender)
+            _jobs[job_id] = {"status": "queued", "submitted_at": time.time(), "age": age, "gender": gender, "city": city}
+            background_tasks.add_task(_run_pipeline, job_id, str(file_path), age, gender, city)
             return JSONResponse(
                 {
                     "status": "queued",
@@ -290,7 +341,13 @@ def create_app() -> FastAPI:
             try:
                 ar_pdf_name = f"{request.job_id}_report_ar.pdf"
                 ar_pdf_path = settings.uploads_dir / ar_pdf_name
-                generate_arabic_pdf_report(arabic, ar_pdf_path)
+                job_result = _jobs[request.job_id].get("result", {})
+                generate_arabic_pdf_report(
+                    arabic,
+                    ar_pdf_path,
+                    recommended_doctors=job_result.get("recommended_doctors"),
+                    urgency=job_result.get("urgency", "routine"),
+                )
                 arabic_pdf_url = f"/uploads/{ar_pdf_name}" if ar_pdf_path.exists() else None
             except Exception as pdf_exc:
                 print(f"[{request.job_id[:8]}] Arabic PDF failed: {pdf_exc}")
@@ -301,6 +358,100 @@ def create_app() -> FastAPI:
             return {"status": "success", "arabic_text": arabic, "arabic_pdf_url": arabic_pdf_url}
         except Exception as exc:
             return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+
+    # ── Email delivery ─────────────────────────────────────────────────
+
+    @application.post("/send-email", response_model=None)
+    async def send_email_endpoint(
+        request: EmailRequest,
+        background_tasks: BackgroundTasks,
+    ) -> JSONResponse | dict[str, str]:
+        """Send the analysis report to the patient via Gmail SMTP.
+
+        Why BackgroundTasks?
+          Sending an email takes 2-5 seconds (network round-trip to Gmail).
+          We don't want the user's browser to hang waiting. So we:
+          1. Return {"status": "sending"} immediately (fast response).
+          2. Actually send the email in the background.
+        """
+        job = _jobs.get(request.job_id)
+        if not job or job.get("status") != "completed":
+            return JSONResponse(
+                {"status": "error", "message": "Job not found or not completed"},
+                status_code=404,
+            )
+
+        analysis: str = job.get("result", {}).get("analysis", "")
+        if not analysis:
+            return JSONResponse(
+                {"status": "error", "message": "No analysis text available"},
+                status_code=400,
+            )
+
+        # Build the PDF path from the job result (may not exist)
+        pdf_url: str | None = job.get("result", {}).get("pdf_url")
+        pdf_path = settings.uploads_dir / f"{request.job_id}_report.pdf" if pdf_url else None
+
+        subject = "Your TahalilAI Lab Report"
+        body = (
+            "Hello,\n\n"
+            "Your medical lab report analysis is complete. "
+            "Here is a summary:\n\n"
+            f"{analysis[:2000]}\n\n"
+            "Please find the full PDF report attached.\n\n"
+            "Best regards,\nTahalilAI"
+        )
+
+        # This closure runs AFTER the HTTP response is sent back
+        def _email_task() -> None:
+            result = send_report_email(
+                recipient_email=request.recipient_email,
+                subject=subject,
+                body_text=body,
+                pdf_path=pdf_path,
+            )
+            print(f"[{request.job_id[:8]}] Email: {result}")
+
+        background_tasks.add_task(_email_task)
+        return {"status": "sending", "message": "Email is being sent."}
+
+    # ── WhatsApp delivery ──────────────────────────────────────────────
+
+    @application.post("/send-whatsapp", response_model=None)
+    async def send_whatsapp_endpoint(
+        request: WhatsAppRequest,
+        background_tasks: BackgroundTasks,
+    ) -> JSONResponse | dict[str, str]:
+        """Send the analysis summary to the patient via WhatsApp."""
+        job = _jobs.get(request.job_id)
+        if not job or job.get("status") != "completed":
+            return JSONResponse(
+                {"status": "error", "message": "Job not found or not completed"},
+                status_code=404,
+            )
+
+        analysis: str = job.get("result", {}).get("analysis", "")
+        if not analysis:
+            return JSONResponse(
+                {"status": "error", "message": "No analysis text available"},
+                status_code=400,
+            )
+
+        message = (
+            "TahalilAI Lab Report\n"
+            "====================\n\n"
+            f"{analysis}"
+        )
+
+        def _whatsapp_task() -> None:
+            result = send_whatsapp_message(
+                to_phone=request.to_phone,
+                message_text=message,
+            )
+            print(f"[{request.job_id[:8]}] WhatsApp: {result}")
+
+        background_tasks.add_task(_whatsapp_task)
+        return {"status": "sending", "message": "WhatsApp message is being sent."}
 
     return application
 
@@ -315,8 +466,9 @@ def _run_pipeline(
     file_path: str,
     age: str | None,
     gender: str | None,
+    city: str | None = None,
 ) -> None:
-    """Execute the analysis pipeline: OCR → AI → PDF."""
+    """Execute the analysis pipeline: OCR -> AI -> Recommend -> PDF."""
     settings = get_settings()
     tag = job_id[:8]
 
@@ -353,12 +505,45 @@ def _run_pipeline(
 
         print(f"[{tag}] AI analysis completed in {ai_s}s")
 
+        # Step 2.5: Doctor recommendation
+        _jobs[job_id]["message"] = "Finding recommended doctors..."
+        recommendation = {"specialities": ["Médecin généraliste"], "urgency": "routine"}
+        recommended_doctors: list[dict] = []
+        try:
+            from tahalilai.services.recommender import (
+                extract_recommended_specialities,
+                find_recommended_doctors,
+            )
+            from tahalilai.database import SessionLocal
+
+            recommendation = extract_recommended_specialities(analysis)
+            db = SessionLocal()
+            try:
+                recommended_doctors = find_recommended_doctors(
+                    specialities=recommendation.get("specialities", []),
+                    city=city,
+                    db=db,
+                )
+            finally:
+                db.close()
+            print(
+                f"[{tag}] Recommended: {recommendation.get('specialities', [])} "
+                f"({len(recommended_doctors)} doctors)"
+            )
+        except Exception as exc:
+            print(f"[{tag}] Doctor recommendation failed: {exc}")
+
         # Step 3: PDF report
         _jobs[job_id]["message"] = "Generating PDF Report..."
         t0 = time.time()
         pdf_name = f"{job_id}_report.pdf"
         pdf_path = settings.uploads_dir / pdf_name
-        generate_pdf_report(analysis, pdf_path)
+        generate_pdf_report(
+            analysis,
+            pdf_path,
+            recommended_doctors=recommended_doctors,
+            urgency=recommendation.get("urgency", "routine"),
+        )
         pdf_s = round(time.time() - t0, 2)
 
         total = round(time.time() - t_start, 2)
@@ -372,6 +557,9 @@ def _run_pipeline(
                 "analysis": analysis,
                 "pdf_url": f"/uploads/{pdf_name}" if pdf_path.exists() else None,
                 "audio_url": None,
+                "recommended_specialities": recommendation.get("specialities", []),
+                "urgency": recommendation.get("urgency", "routine"),
+                "recommended_doctors": recommended_doctors,
                 "timing": {
                     "ocr_seconds": ocr_s,
                     "ai_seconds": ai_s,

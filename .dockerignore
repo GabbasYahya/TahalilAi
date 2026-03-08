@@ -1,0 +1,14 @@
+.env
+.git/
+.claude/
+frontend/node_modules/
+frontend/.next/
+backend/.venv/
+backend/venv/
+backend/uploads/
+backend/*.db
+backend/bin/
+backend/Models/
+backend/tmpclaude-*
+docs/
+*.md

@@ -25,8 +25,12 @@ htmlcov/
 backend/bin/
 backend/Models/
 
+# ── Database ──────────────────────────────────────────────────────────────
+*.db
+
 # ── Runtime data ───────────────────────────────────────────────────────────
-backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # ── Environment ────────────────────────────────────────────────────────────
 .env

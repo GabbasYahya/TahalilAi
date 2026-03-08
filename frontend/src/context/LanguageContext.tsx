@@ -121,6 +121,58 @@ export const translations: Translations = {
     ar: "النطاق الطبيعي",
   },
 
+  // Doctors
+  "doctors.title": {
+    en: "Find a Doctor",
+    fr: "Trouver un M\u00e9decin",
+    ar: "\u0627\u0628\u062d\u062b \u0639\u0646 \u0637\u0628\u064a\u0628",
+  },
+  "doctors.search": {
+    en: "Search by name...",
+    fr: "Rechercher par nom...",
+    ar: "...\u0627\u0628\u062d\u062b \u0628\u0627\u0644\u0627\u0633\u0645",
+  },
+  "doctors.allCities": {
+    en: "All Cities",
+    fr: "Toutes les villes",
+    ar: "\u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u062f\u0646",
+  },
+  "doctors.allSpecialities": {
+    en: "All Specialities",
+    fr: "Toutes les sp\u00e9cialit\u00e9s",
+    ar: "\u062c\u0645\u064a\u0639 \u0627\u0644\u062a\u062e\u0635\u0635\u0627\u062a",
+  },
+  "doctors.noResults": {
+    en: "No doctors found",
+    fr: "Aucun m\u00e9decin trouv\u00e9",
+    ar: "\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0639\u062b\u0648\u0631 \u0639\u0644\u0649 \u0623\u0637\u0628\u0627\u0621",
+  },
+  "doctors.clearFilters": {
+    en: "Clear filters",
+    fr: "Effacer les filtres",
+    ar: "\u0645\u0633\u062d \u0627\u0644\u0641\u0644\u0627\u062a\u0631",
+  },
+  "doctors.doctorsFound": {
+    en: "doctors found",
+    fr: "m\u00e9decins trouv\u00e9s",
+    ar: "\u0637\u0628\u064a\u0628",
+  },
+  "doctors.nav": {
+    en: "Find a Doctor",
+    fr: "Trouver un M\u00e9decin",
+    ar: "\u0627\u0628\u062d\u062b \u0639\u0646 \u0637\u0628\u064a\u0628",
+  },
+  "upload.city": {
+    en: "City",
+    fr: "Ville",
+    ar: "\u0627\u0644\u0645\u062f\u064a\u0646\u0629",
+  },
+  "upload.cityPlaceholder": {
+    en: "Select your city (for doctor recommendations)",
+    fr: "S\u00e9lectionnez votre ville (pour recommandations)",
+    ar: "\u0627\u062e\u062a\u0631 \u0645\u062f\u064a\u0646\u062a\u0643 (\u0644\u0644\u062a\u0648\u0635\u064a\u0627\u062a)",
+  },
+
   // Footer
   "footer.disclaimer": {
     en: "TahalilAI does not provide medical diagnoses. This information is educational only.",

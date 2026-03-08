@@ -45,12 +45,24 @@ def _strip_markdown(text: str) -> str:
 
 
 def _gtts(text: str, output_path: Path, lang: str) -> bool:
-    """Generate audio via Google TTS."""
+    """Generate audio via Google TTS.
+
+    gTTS handles long text internally by splitting at sentence boundaries and
+    making multiple API requests, then writing all audio sequentially to one
+    stream. This produces a valid single MP3 that browsers can play in full.
+
+    We write to a temp file first and rename atomically so that the polling
+    endpoint never serves a partially-written file.
+    """
+    tmp_path = output_path.with_suffix(".tmp")
     try:
+        print(f"gTTS: generating audio for {len(text)} chars")
         tts = gTTS(text=text, lang=lang, slow=False)
-        tts.save(str(output_path))
+        tts.save(str(tmp_path))
+        tmp_path.rename(output_path)
         print(f"gTTS → {output_path}")
         return True
     except Exception as exc:
         print(f"gTTS failed: {exc}")
+        tmp_path.unlink(missing_ok=True)
         return False

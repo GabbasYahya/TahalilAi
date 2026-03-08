@@ -143,9 +143,9 @@ def _analyze_with_local_llm(
         "-p",
         full_prompt,
         "-n",
-        "2048",
-        "-c",
         "6144",
+        "-c",
+        "10240",
         "--temp",
         "0.3",
         "--no-display-prompt",
@@ -217,8 +217,10 @@ def _clean_llm_output(raw: str) -> str:
     text = re.sub(r"^\s*>\s*", "", text, flags=re.MULTILINE)
 
     # ── 2. Full prompt echo removal ────────────────────────────────────
-    # If the prompt was echoed, strip everything up to [/INST]
-    idx = text.rfind("[/INST]")
+    # If the prompt was echoed, strip everything up to the FIRST [/INST]
+    # (using find, not rfind — rfind would erase the analysis if the model
+    #  accidentally regenerates [/INST] inside its own output)
+    idx = text.find("[/INST]")
     if idx != -1:
         text = text[idx + len("[/INST]") :]
 

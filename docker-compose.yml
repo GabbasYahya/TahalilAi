@@ -1,0 +1,39 @@
+services:
+
+  # ── FastAPI backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tahalilai-backend
+    env_file:
+      - .env                     # your GEMINI_API_KEY, SMTP_*, WHATSAPP_*, etc.
+    environment:
+      # Tesseract is installed via apt — no path override needed on Linux
+      TESSERACT_CMD: ""
+    volumes:
+      # Single volume covers uploads, generated PDFs, audio, AND the SQLite DB
+      # (database.py stores tahalilai.db inside uploads_dir = /app/uploads)
+      - backend_data:/app/uploads
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # ── Next.js frontend ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Tells the browser where the backend API lives.
+        # Change to your server's IP/domain when deploying to a real server.
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: tahalilai-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:   # persists uploads/, PDFs, audio files, and tahalilai.db

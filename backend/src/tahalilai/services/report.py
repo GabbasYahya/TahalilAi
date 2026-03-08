@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fpdf import FPDF
-from fpdf.enums import XPos, YPos
+from fpdf.enums import XPos, YPos  # noqa: F401 – kept for fpdf2 compatibility
 
 # ---------------------------------------------------------------------------
 # Colour palette
@@ -38,11 +38,33 @@ _HDR_H    = 40   # header band height (mm)
 _INDENT   = 6    # bullet indent (mm)
 
 # ---------------------------------------------------------------------------
-# Font paths (Windows)
+# Font paths — tried in order; first existing file wins
 # ---------------------------------------------------------------------------
-_SEGOE    = r"C:\Windows\Fonts\segoeui.ttf"
-_SEGOE_B  = r"C:\Windows\Fonts\segoeuib.ttf"
-_ARABIC   = r"C:\Windows\Fonts\arabtype.ttf"  # Arabic Typesetting
+
+def _find_font(*candidates: str) -> str:
+    """Return the first path that exists, or the last one as a placeholder."""
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return candidates[-1]
+
+_SEGOE = _find_font(
+    r"C:\Windows\Fonts\segoeui.ttf",                                            # Windows
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",          # Linux (fonts-liberation)
+    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",                          # Linux fallback
+)
+_SEGOE_B = _find_font(
+    r"C:\Windows\Fonts\segoeuib.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+)
+_ARABIC = _find_font(
+    r"C:\Windows\Fonts\arabtype.ttf",                                            # Windows
+    "/usr/share/fonts/truetype/arabeyes/ae_AlArabiya.ttf",                      # Linux (fonts-arabeyes)
+    "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",               # Linux (fonts-noto)
+    r"C:\Windows\Fonts\segoeui.ttf",                                             # Windows last resort
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",          # Linux last resort
+)
 
 
 # ---------------------------------------------------------------------------
@@ -339,12 +361,19 @@ def _prepare_arabic(text: str) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate_pdf_report(text_content: str, output_path: str | Path) -> Path:
+def generate_pdf_report(
+    text_content: str,
+    output_path: str | Path,
+    recommended_doctors: list[dict] | None = None,
+    urgency: str = "routine",
+) -> Path:
     """Generate a styled English PDF report from analysis text.
 
     Args:
         text_content: Analysis text (may contain light markdown).
         output_path: Destination path for the ``.pdf`` file.
+        recommended_doctors: Optional list of doctor dicts to append.
+        urgency: Urgency level – ``"urgent"`` adds a critical-values notice.
 
     Returns:
         The :class:`~pathlib.Path` to the generated file.
@@ -360,16 +389,30 @@ def generate_pdf_report(text_content: str, output_path: str | Path) -> Path:
     pdf.add_page()
 
     _render_english(pdf, text_content)
+
+    if urgency == "urgent":
+        _render_urgency_notice_en(pdf)
+
+    if recommended_doctors:
+        _render_doctors_en(pdf, recommended_doctors)
+
     pdf.output(str(output_path))
     return output_path
 
 
-def generate_arabic_pdf_report(text_content: str, output_path: str | Path) -> Path:
+def generate_arabic_pdf_report(
+    text_content: str,
+    output_path: str | Path,
+    recommended_doctors: list[dict] | None = None,
+    urgency: str = "routine",
+) -> Path:
     """Generate a styled Arabic (RTL) PDF report from translated analysis text.
 
     Args:
         text_content: Arabic analysis text (may contain light markdown).
         output_path: Destination path for the ``.pdf`` file.
+        recommended_doctors: Optional list of doctor dicts to append.
+        urgency: Urgency level – ``"urgent"`` adds a critical-values notice.
 
     Returns:
         The :class:`~pathlib.Path` to the generated file.
@@ -385,8 +428,161 @@ def generate_arabic_pdf_report(text_content: str, output_path: str | Path) -> Pa
     pdf.add_page()
 
     _render_arabic(pdf, text_content)
+
+    if urgency == "urgent":
+        _render_urgency_notice_ar(pdf)
+
+    if recommended_doctors:
+        _render_doctors_ar(pdf, recommended_doctors)
+
     pdf.output(str(output_path))
     return output_path
+
+
+# ---------------------------------------------------------------------------
+# Urgency notice renderers
+# ---------------------------------------------------------------------------
+
+_RED    = (192, 57,  43)
+_REDTINT = (253, 237, 236)
+
+def _render_urgency_notice_en(pdf: _PDFReport) -> None:
+    """Render a red critical-values warning box (English)."""
+    pdf.ln(6)
+    pdf.set_fill_color(*_REDTINT)
+    pdf.set_draw_color(*_RED)
+    pdf.set_line_width(0.5)
+    try:
+        pdf.set_font(pdf._font_bold, "B", 11)
+    except Exception:
+        pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*_RED)
+    pdf.multi_cell(0, 8, "  \u26a0  Critical Values Detected", fill=True, align="L")
+    try:
+        pdf.set_font(pdf._font, "", 9)
+    except Exception:
+        pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*_RED)
+    pdf.multi_cell(
+        0, 6,
+        "  Some results require prompt medical attention. "
+        "Please consult a doctor as soon as possible.",
+        fill=True, align="L",
+    )
+    pdf.set_line_width(0.2)
+    pdf.set_text_color(*_DARK)
+
+
+def _render_urgency_notice_ar(pdf: _PDFReport) -> None:
+    """Render a red critical-values warning box (Arabic)."""
+    pdf.ln(6)
+    pdf.set_fill_color(*_REDTINT)
+    pdf.set_draw_color(*_RED)
+    pdf.set_line_width(0.5)
+    try:
+        pdf.set_font(pdf._font, "", 12)
+    except Exception:
+        pdf.set_font("Helvetica", "", 12)
+    pdf.set_text_color(*_RED)
+    pdf.multi_cell(0, 9, _prepare_arabic("قيم حرجة تستوجب العناية الفورية  \u26a0"), fill=True, align="R")
+    pdf.multi_cell(
+        0, 8,
+        _prepare_arabic("بعض النتائج تستدعي مراجعة طبية عاجلة. يُرجى استشارة الطبيب في أقرب وقت ممكن."),
+        fill=True, align="R",
+    )
+    pdf.set_line_width(0.2)
+    pdf.set_text_color(*_DARK)
+
+
+# ---------------------------------------------------------------------------
+# Recommended-doctors renderers
+# ---------------------------------------------------------------------------
+
+def _render_doctors_en(pdf: _PDFReport, doctors: list[dict]) -> None:
+    """Append a Recommended Doctors section (English)."""
+    pdf.ln(6)
+    # Section header
+    pdf.set_fill_color(*_BLUE)
+    pdf.set_text_color(*_WHITE)
+    try:
+        pdf.set_font(pdf._font_bold, "B", pdf._size_section)
+    except Exception:
+        pdf.set_font("Helvetica", "B", 11)
+    pdf.multi_cell(0, 8, "  Recommended Doctors", fill=True, align="L")
+    pdf.set_text_color(*_DARK)
+    pdf.ln(2)
+
+    for doc in doctors:
+        try:
+            pdf.set_font(pdf._font_bold, "B", pdf._size_body)
+        except Exception:
+            pdf.set_font("Helvetica", "B", 10)
+        name = f"{doc.get('title', '')} {doc.get('name', '')}".strip()
+        pdf.multi_cell(0, 6, name, align="L")
+
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body - 1)
+        except Exception:
+            pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*_MUTED)
+
+        speciality = doc.get("speciality", "")
+        if speciality:
+            pdf.multi_cell(0, 5, f"  Specialty: {speciality}", align="L")
+        phone = doc.get("phone", "")
+        if phone:
+            pdf.multi_cell(0, 5, f"  Phone: {phone}", align="L")
+        address = doc.get("address", "")
+        city    = doc.get("city", "")
+        location = ", ".join(filter(None, [address, city]))
+        if location:
+            pdf.multi_cell(0, 5, f"  Address: {location}", align="L")
+
+        pdf.set_text_color(*_DARK)
+        pdf.ln(3)
+
+
+def _render_doctors_ar(pdf: _PDFReport, doctors: list[dict]) -> None:
+    """Append a Recommended Doctors section (Arabic)."""
+    pdf.ln(6)
+    pdf.set_fill_color(*_BLUE)
+    pdf.set_text_color(*_WHITE)
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_section)
+    except Exception:
+        pdf.set_font("Helvetica", "", 12)
+    pdf.multi_cell(0, 9, _prepare_arabic("الأطباء الموصى بهم  "), fill=True, align="R")
+    pdf.set_text_color(*_DARK)
+    pdf.ln(2)
+
+    for doc in doctors:
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body)
+        except Exception:
+            pdf.set_font("Helvetica", "", 11)
+        name = f"{doc.get('title', '')} {doc.get('name', '')}".strip()
+        pdf.multi_cell(0, 7, _prepare_arabic(name), align="R")
+
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body - 1)
+        except Exception:
+            pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(*_MUTED)
+
+        speciality = doc.get("speciality", "")
+        if speciality:
+            pdf.multi_cell(0, 6, _prepare_arabic(f"التخصص: {speciality}  "), align="R")
+        phone = doc.get("phone", "")
+        if phone:
+            pdf.multi_cell(0, 6, _prepare_arabic(f"الهاتف: {phone}  "), align="R")
+        address = doc.get("address", "")
+        city    = doc.get("city", "")
+        location = ", ".join(filter(None, [address, city]))
+        if location:
+            pdf.multi_cell(0, 6, _prepare_arabic(f"العنوان: {location}  "), align="R")
+
+        pdf.set_text_color(*_DARK)
+        pdf.ln(3)
 
 
 # ---------------------------------------------------------------------------

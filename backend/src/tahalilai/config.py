@@ -46,6 +46,29 @@ class Settings(BaseSettings):
     tesseract_cmd: str = ""
     ocr_languages: str = "fra+eng+ara"
 
+    # ── Email (Gmail SMTP) ──────────────────────────────────────────────────
+    # Why SMTP_SSL on port 465: it's always encrypted from the start,
+    # simpler than STARTTLS on port 587 which starts plain then upgrades.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+    smtp_sender_email: str = ""       # your Gmail address
+    smtp_app_password: str = ""       # 16-char App Password (NOT your Gmail password)
+
+    # ── WhatsApp (Cloud API) ────────────────────────────────────────────────
+    # Get these from https://developers.facebook.com > WhatsApp > API Setup
+    whatsapp_access_token: str = ""
+    whatsapp_phone_number_id: str = ""
+    whatsapp_api_version: str = "v19.0"
+
+    # ── Google Maps (optional, for geocoding / ratings) ──────────────────────
+    google_maps_api_key: str = ""
+
+    # ── Upload cleanup ────────────────────────────────────────────────────────
+    # Files older than this many hours are deleted by the background sweep.
+    uploads_max_age_hours: float = 24.0
+    # How often (in seconds) the cleanup sweep runs. Default: 3600 (every hour).
+    uploads_cleanup_interval_seconds: int = 3600
+
     # ── Computed paths ─────────────────────────────────────────────────────
     @property
     def uploads_dir(self) -> Path:

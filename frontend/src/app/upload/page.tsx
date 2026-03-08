@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { ProcessingLoader } from "@/components/ProcessingLoader";
@@ -16,7 +16,17 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
+  const [city, setCity] = useState("");
+  const [cities, setCities] = useState<{ city: string; count: number }[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Load cities for dropdown
+  useEffect(() => {
+    fetch(`${API_URL}/doctors/cities`)
+      .then((r) => r.json())
+      .then(setCities)
+      .catch(() => {});
+  }, []);
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -57,15 +67,19 @@ export default function UploadPage() {
       formData.append("file", file);
       if (age) formData.append("age", age);
       if (gender) formData.append("gender", gender);
+      if (city) formData.append("city", city);
 
       const startResponse = await fetch(`${API_URL}/analyze`, {
         method: "POST",
         body: formData,
       });
 
-      if (!startResponse.ok) throw new Error("Server returned an error. Is the backend running?");
       const startData = await startResponse.json();
-      
+
+      if (!startResponse.ok) {
+        throw new Error(startData.message || "Server returned an error. Is the backend running?");
+      }
+
       if (startData.status === "error") throw new Error(startData.message);
       
       const jobId = startData.job_id;
@@ -101,6 +115,9 @@ export default function UploadPage() {
               text: statusData.result.analysis,
               audioUrl: statusData.result.audio_url,
               pdfUrl: statusData.result.pdf_url,
+              recommended_specialities: statusData.result.recommended_specialities || [],
+              urgency: statusData.result.urgency || "routine",
+              recommended_doctors: statusData.result.recommended_doctors || [],
               timestamp: Date.now()
             }));
             
@@ -247,6 +264,23 @@ export default function UploadPage() {
                   <option value="female">{t("upload.genderFemale")}</option>
                 </select>
               </div>
+            </div>
+
+            {/* City for doctor recommendations */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">{t("upload.city")}</label>
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="">{t("upload.cityPlaceholder")}</option>
+                {cities.map((c) => (
+                  <option key={c.city} value={c.city}>
+                    {c.city}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
