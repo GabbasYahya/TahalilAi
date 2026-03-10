@@ -173,6 +173,266 @@ export const translations: Translations = {
     ar: "\u0627\u062e\u062a\u0631 \u0645\u062f\u064a\u0646\u062a\u0643 (\u0644\u0644\u062a\u0648\u0635\u064a\u0627\u062a)",
   },
 
+  // Privacy banner
+  "privacy.title": {
+    en: "Your file is processed securely.",
+    fr: "Votre fichier est traité en toute sécurité.",
+    ar: "يتم معالجة ملفك بأمان تام.",
+  },
+  "privacy.body": {
+    en: "It is never stored permanently and is automatically deleted after analysis.",
+    fr: "Il n'est jamais stocké de façon permanente et est automatiquement supprimé après l'analyse.",
+    ar: "لا يتم تخزينه بشكل دائم ويُحذف تلقائيًا بعد التحليل.",
+  },
+
+  // Optional fields toggle
+  "upload.optionalToggle": {
+    en: "Add optional details to improve accuracy",
+    fr: "Ajouter des détails optionnels pour améliorer la précision",
+    ar: "أضف تفاصيل اختيارية لتحسين الدقة",
+  },
+
+  // Urgency banners
+  "urgency.urgent.heading": {
+    en: "Important: Attention Required",
+    fr: "Important : Attention requise",
+    ar: "مهم: يستوجب الانتباه",
+  },
+  "urgency.urgent.body": {
+    en: "Some values in your report fall outside the normal range and may require prompt medical attention. Please consult a doctor before drawing any conclusions.",
+    fr: "Certaines valeurs dans votre rapport se situent hors de la plage normale et peuvent nécessiter une attention médicale rapide. Veuillez consulter un médecin avant de tirer des conclusions.",
+    ar: "بعض القيم في تقريرك تقع خارج النطاق الطبيعي وقد تستدعي الاهتمام الطبي العاجل. يُرجى استشارة الطبيب قبل استخلاص أي استنتاجات.",
+  },
+  "urgency.soon.heading": {
+    en: "Follow-up Recommended",
+    fr: "Suivi recommandé",
+    ar: "يُنصح بالمتابعة",
+  },
+  "urgency.soon.body": {
+    en: "A few values in your report are worth discussing with your doctor at your next visit.",
+    fr: "Quelques valeurs dans votre rapport méritent d'être discutées avec votre médecin lors de votre prochaine visite.",
+    ar: "بعض القيم في تقريرك تستحق المناقشة مع طبيبك في زيارتك القادمة.",
+  },
+
+  // Next steps card
+  "nextsteps.heading": {
+    en: "What to do next",
+    fr: "Que faire maintenant",
+    ar: "ماذا تفعل بعد ذلك",
+  },
+  "nextsteps.urgent.1": {
+    en: "Read the full analysis below carefully.",
+    fr: "Lisez attentivement l'analyse complète ci-dessous.",
+    ar: "اقرأ التحليل الكامل أدناه بعناية.",
+  },
+  "nextsteps.urgent.2": {
+    en: "Consult a doctor as soon as possible.",
+    fr: "Consultez un médecin dès que possible.",
+    ar: "استشر طبيبًا في أقرب وقت ممكن.",
+  },
+  "nextsteps.urgent.3": {
+    en: "Download and bring the PDF report to your appointment.",
+    fr: "Téléchargez et apportez le rapport PDF à votre rendez-vous.",
+    ar: "حمّل تقرير PDF وأحضره إلى موعدك.",
+  },
+  "nextsteps.urgent.4": {
+    en: "Do not self-medicate based on this analysis.",
+    fr: "Ne vous automédiquiez pas sur la base de cette analyse.",
+    ar: "لا تعالج نفسك بناءً على هذا التحليل.",
+  },
+  "nextsteps.soon.1": {
+    en: "Read the full analysis below.",
+    fr: "Lisez l'analyse complète ci-dessous.",
+    ar: "اقرأ التحليل الكامل أدناه.",
+  },
+  "nextsteps.soon.2": {
+    en: "Note which values are flagged for discussion.",
+    fr: "Notez les valeurs signalées pour discussion.",
+    ar: "لاحظ القيم التي تم الإشارة إليها للمناقشة.",
+  },
+  "nextsteps.soon.3": {
+    en: "Schedule a non-urgent appointment with your doctor.",
+    fr: "Prenez un rendez-vous non urgent avec votre médecin.",
+    ar: "احجز موعدًا غير عاجل مع طبيبك.",
+  },
+  "nextsteps.soon.4": {
+    en: "Use the AI assistant below if you have questions.",
+    fr: "Utilisez l'assistant IA ci-dessous si vous avez des questions.",
+    ar: "استخدم المساعد الذكي أدناه إذا كان لديك أسئلة.",
+  },
+  "nextsteps.routine.1": {
+    en: "Read your results below.",
+    fr: "Lisez vos résultats ci-dessous.",
+    ar: "اقرأ نتائجك أدناه.",
+  },
+  "nextsteps.routine.2": {
+    en: "Keep this report for your records.",
+    fr: "Conservez ce rapport pour vos dossiers.",
+    ar: "احتفظ بهذا التقرير لسجلاتك.",
+  },
+  "nextsteps.routine.3": {
+    en: "Discuss at your next routine check-up.",
+    fr: "Discutez-en lors de votre prochain bilan de santé.",
+    ar: "ناقشه في فحصك الدوري القادم.",
+  },
+
+  // Report collapse toggle
+  "results.readFull": {
+    en: "Read full analysis",
+    fr: "Lire l'analyse complète",
+    ar: "اقرأ التحليل الكامل",
+  },
+  "results.collapse": {
+    en: "Collapse report",
+    fr: "Réduire le rapport",
+    ar: "طي التقرير",
+  },
+
+  // Chat toggle
+  "chat.open": {
+    en: "Ask a question about your results",
+    fr: "Posez une question sur vos résultats",
+    ar: "اطرح سؤالاً حول نتائجك",
+  },
+
+  // Header nav
+  "header.home": { en: "Home", fr: "Accueil", ar: "الرئيسية" },
+
+  // Hero extras
+  "hero.findSpecialist": { en: "Find a specialist", fr: "Trouver un spécialiste", ar: "ابحث عن متخصص" },
+  "hero.trust2": { en: "Results in under 60 seconds", fr: "Résultats en moins de 60 secondes", ar: "النتائج في أقل من 60 ثانية" },
+  "hero.badge.uploaded": { en: "Report uploaded", fr: "Rapport téléchargé", ar: "تم رفع التقرير" },
+  "hero.badge.ready": { en: "Explanation ready", fr: "Explication prête", ar: "الشرح جاهز" },
+
+  // Hero process card
+  "hero.card.label": { en: "How it works", fr: "Comment ça fonctionne", ar: "كيف يعمل" },
+  "hero.card.title": { en: "Three steps to clarity", fr: "Trois étapes vers la clarté", ar: "ثلاث خطوات نحو الوضوح" },
+  "hero.step1.label": { en: "Upload your lab report", fr: "Téléchargez votre rapport", ar: "ارفع تقرير مختبرك" },
+  "hero.step1.sub": { en: "PDF or image, any format", fr: "PDF ou image, tout format", ar: "PDF أو صورة، أي تنسيق" },
+  "hero.step2.label": { en: "AI reads every value", fr: "L'IA lit chaque valeur", ar: "الذكاء الاصطناعي يقرأ كل قيمة" },
+  "hero.step2.sub": { en: "OCR + clinical knowledge", fr: "OCR + connaissances cliniques", ar: "تقنية OCR + معرفة سريرية" },
+  "hero.step3.label": { en: "Get a plain-language report", fr: "Obtenez un rapport clair", ar: "احصل على تقرير بلغة بسيطة" },
+  "hero.step3.sub": { en: "PDF · Audio · Arabic", fr: "PDF · Audio · Arabe", ar: "PDF · صوت · عربي" },
+  "hero.card.footer": {
+    en: "Files are deleted immediately after analysis",
+    fr: "Les fichiers sont supprimés immédiatement après l'analyse",
+    ar: "يتم حذف الملفات فور الانتهاء من التحليل",
+  },
+
+  // Stats strip
+  "stats.languages.label": { en: "Languages supported", fr: "Langues prises en charge", ar: "لغات مدعومة" },
+  "stats.languages.note": { en: "AR · FR · EN", fr: "AR · FR · EN", ar: "عربي · فرنسي · إنجليزي" },
+  "stats.time.label": { en: "Average analysis time", fr: "Temps d'analyse moyen", ar: "متوسط وقت التحليل" },
+  "stats.time.note": { en: "From upload to report", fr: "De l'envoi au rapport", ar: "من الرفع حتى التقرير" },
+  "stats.privacy.label": { en: "Deleted after analysis", fr: "Supprimés après analyse", ar: "محذوفة بعد التحليل" },
+  "stats.privacy.note": { en: "No files stored", fr: "Aucun fichier stocké", ar: "لا يتم تخزين الملفات" },
+
+  // How it works section
+  "hiw.label": { en: "How it works", fr: "Comment ça fonctionne", ar: "كيف يعمل" },
+  "hiw.heading": { en: "From document to understanding.", fr: "Du document à la compréhension.", ar: "من المستند إلى الفهم." },
+  "hiw.body": {
+    en: "Upload your report once, and the AI takes care of the rest — in plain language, in your language.",
+    fr: "Téléchargez votre rapport une fois, et l'IA s'occupe du reste — en langage simple, dans votre langue.",
+    ar: "ارفع تقريرك مرة واحدة، والذكاء الاصطناعي يتولى الباقي — بلغة بسيطة، بلغتك.",
+  },
+  "hiw.step1.title": { en: "Upload your report", fr: "Téléchargez votre rapport", ar: "ارفع تقريرك" },
+  "hiw.step1.desc": {
+    en: "Drop a PDF or photo of your lab results. Blood work, imaging reports, clinic printouts — we handle any format.",
+    fr: "Déposez un PDF ou une photo de vos résultats. Analyses sanguines, rapports d'imagerie, imprimés de clinique — nous gérons tout format.",
+    ar: "أسقط ملف PDF أو صورة من نتائج مختبرك. تحاليل الدم، تقارير التصوير، مطبوعات العيادات — نتعامل مع أي تنسيق.",
+  },
+  "hiw.step2.title": { en: "AI reads every value", fr: "L'IA lit chaque valeur", ar: "الذكاء الاصطناعي يقرأ كل قيمة" },
+  "hiw.step2.desc": {
+    en: "Our model extracts each test result using OCR, identifies what's flagged, and cross-references clinical reference ranges.",
+    fr: "Notre modèle extrait chaque résultat d'analyse par OCR, identifie ce qui est signalé et le compare aux plages de référence cliniques.",
+    ar: "يستخرج نموذجنا كل نتيجة اختبار باستخدام تقنية OCR، ويحدد ما تم الإشارة إليه، ويقارنه بالنطاقات المرجعية السريرية.",
+  },
+  "hiw.step3.title": { en: "Get a plain-language report", fr: "Obtenez un rapport en langage simple", ar: "احصل على تقرير بلغة بسيطة" },
+  "hiw.step3.desc": {
+    en: "Receive a structured report with flagged values explained in plain language. Download a PDF, listen to an audio summary, or ask follow-up questions.",
+    fr: "Recevez un rapport structuré avec les valeurs signalées expliquées en langage simple. Téléchargez un PDF, écoutez un résumé audio ou posez des questions.",
+    ar: "احصل على تقرير منظم مع شرح القيم المُشار إليها بلغة بسيطة. حمّل ملف PDF، استمع لملخص صوتي، أو اطرح أسئلة متابعة.",
+  },
+  "hiw.step4.title": { en: "Find a specialist near you", fr: "Trouvez un spécialiste près de vous", ar: "ابحث عن متخصص قريب منك" },
+  "hiw.step4.desc": {
+    en: "Based on your results, we suggest relevant specialists from our database of doctors across Morocco, with ratings and contact details.",
+    fr: "Sur la base de vos résultats, nous suggérons des spécialistes pertinents depuis notre base de médecins au Maroc, avec notes et coordonnées.",
+    ar: "بناءً على نتائجك، نقترح متخصصين مناسبين من قاعدة بيانات الأطباء عبر المغرب، مع التقييمات وتفاصيل الاتصال.",
+  },
+
+  // Features grid
+  "features.label": { en: "What you get", fr: "Ce que vous obtenez", ar: "ما ستحصل عليه" },
+  "features.heading1": { en: "Every tool you need.", fr: "Tous les outils dont vous avez besoin.", ar: "كل الأدوات التي تحتاجها." },
+  "features.heading2": { en: "Nothing you don't.", fr: "Rien de plus.", ar: "لا شيء زائد." },
+  "feat.ai.title": { en: "AI-powered report analysis", fr: "Analyse de rapport par IA", ar: "تحليل التقرير بالذكاء الاصطناعي" },
+  "feat.ai.desc": {
+    en: "Our model reads your full lab report, identifies abnormal values, explains what they mean in plain language, and provides context based on your age and gender. No copy-paste needed — it works directly from your file.",
+    fr: "Notre modèle lit votre rapport complet, identifie les valeurs anormales, explique leur signification en langage simple et fournit un contexte selon votre âge et sexe. Sans copier-coller — il travaille directement depuis votre fichier.",
+    ar: "يقرأ نموذجنا تقريرك الكامل، يحدد القيم غير الطبيعية، يشرح معناها بلغة بسيطة، ويقدم سياقًا بناءً على عمرك وجنسك. لا حاجة للنسخ واللصق — يعمل مباشرة من ملفك.",
+  },
+  "feat.audio.title": { en: "Audio summary", fr: "Résumé audio", ar: "ملخص صوتي" },
+  "feat.audio.desc": {
+    en: "Listen to your report read aloud. Helpful for patients who prefer audio or are sharing results with family.",
+    fr: "Écoutez votre rapport lu à voix haute. Utile pour les patients qui préfèrent l'audio ou partagent les résultats avec leur famille.",
+    ar: "استمع لتقريرك يُقرأ بصوت عالٍ. مفيد للمرضى الذين يفضلون الصوت أو يشاركون النتائج مع الأسرة.",
+  },
+  "feat.arabic.title": { en: "Arabic translation", fr: "Traduction arabe", ar: "ترجمة عربية" },
+  "feat.arabic.desc": {
+    en: "One-click translation to Arabic — with a separate downloadable PDF in RTL format, right-to-left.",
+    fr: "Traduction en un clic vers l'arabe — avec un PDF téléchargeable séparé au format RTL, de droite à gauche.",
+    ar: "ترجمة بنقرة واحدة إلى العربية — مع ملف PDF قابل للتحميل بتنسيق من اليمين إلى اليسار.",
+  },
+  "feat.chat.title": { en: "Ask follow-up questions", fr: "Posez des questions", ar: "اطرح أسئلة متابعة" },
+  "feat.chat.desc": {
+    en: "After reading your report, the AI stays available. Ask anything — \"what does this mean?\", \"should I be worried?\"",
+    fr: "Après lecture du rapport, l'IA reste disponible. Posez n'importe quelle question — \"que signifie ceci ?\", \"dois-je m'inquiéter ?\"",
+    ar: "بعد قراءة تقريرك، يبقى الذكاء الاصطناعي متاحًا. اسأل أي شيء — \"ماذا يعني هذا؟\"، \"هل يجب أن أقلق؟\"",
+  },
+  "feat.doctors.title": { en: "Nearby specialist recommendations", fr: "Recommandations de spécialistes", ar: "توصيات بمتخصصين قريبين" },
+  "feat.doctors.desc": {
+    en: "Based on your flagged values, we suggest the right type of doctor and show rated specialists near your city.",
+    fr: "Sur la base de vos valeurs signalées, nous suggérons le bon type de médecin et affichons des spécialistes bien notés près de votre ville.",
+    ar: "بناءً على قيمك المُشار إليها، نقترح النوع المناسب من الأطباء ونعرض متخصصين بتقييمات جيدة قرب مدينتك.",
+  },
+  "feat.pdf.title": { en: "Download PDF report", fr: "Télécharger le rapport PDF", ar: "تحميل تقرير PDF" },
+  "feat.pdf.desc": {
+    en: "Save and share your AI-generated explanation as a professionally formatted PDF — available in English and Arabic.",
+    fr: "Sauvegardez et partagez votre explication générée par IA sous forme de PDF formaté professionnellement — disponible en anglais et arabe.",
+    ar: "احفظ وشارك شرح الذكاء الاصطناعي كملف PDF منسق باحترافية — متاح بالإنجليزية والعربية.",
+  },
+
+  // Disclaimer
+  "disclaimer.title": {
+    en: "Not a substitute for medical advice",
+    fr: "Pas un substitut aux avis médicaux",
+    ar: "ليس بديلاً عن المشورة الطبية",
+  },
+  "disclaimer.body": {
+    en: "TahalilAI explains what your lab values mean — it does not diagnose, treat, or prescribe. This tool is designed to help you understand your results and prepare for a conversation with your doctor, not to replace one. Always consult a licensed healthcare professional.",
+    fr: "TahalilAI explique la signification de vos valeurs de laboratoire — il ne diagnostique pas, ne traite pas et ne prescrit pas. Cet outil est conçu pour vous aider à comprendre vos résultats et préparer une conversation avec votre médecin, pas pour le remplacer. Consultez toujours un professionnel de santé agréé.",
+    ar: "تحاليلAI يشرح معنى قيم مختبرك — لا يشخّص ولا يعالج ولا يصف. هذه الأداة مصممة لمساعدتك على فهم نتائجك والاستعداد للحديث مع طبيبك، وليس لاستبداله. استشر دائمًا مختصًا طبيًا مرخصًا.",
+  },
+
+  // Trust strip
+  "trust.noAccount.title": { en: "No account required", fr: "Sans inscription", ar: "لا حاجة لحساب" },
+  "trust.noAccount.body": {
+    en: "Just upload and get your results. No sign-up, no email.",
+    fr: "Téléchargez simplement et obtenez vos résultats. Sans inscription, sans email.",
+    ar: "فقط ارفع واحصل على نتائجك. لا تسجيل، لا بريد إلكتروني.",
+  },
+  "trust.deleted.title": { en: "Files deleted instantly", fr: "Fichiers supprimés instantanément", ar: "الملفات تُحذف فورًا" },
+  "trust.deleted.body": {
+    en: "Your document is removed from our servers right after analysis.",
+    fr: "Votre document est supprimé de nos serveurs juste après l'analyse.",
+    ar: "يُزال مستندك من خوادمنا مباشرة بعد التحليل.",
+  },
+  "trust.multilang.title": { en: "Arabic & French ready", fr: "Arabe et français disponibles", ar: "العربية والفرنسية متاحتان" },
+  "trust.multilang.body": {
+    en: "Get your explanation in the language you're most comfortable with.",
+    fr: "Obtenez votre explication dans la langue qui vous convient le mieux.",
+    ar: "احصل على شرحك باللغة التي تشعر بارتياح أكبر معها.",
+  },
+
   // Footer
   "footer.disclaimer": {
     en: "TahalilAI does not provide medical diagnoses. This information is educational only.",
