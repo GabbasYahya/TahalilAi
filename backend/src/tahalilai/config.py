@@ -40,7 +40,13 @@ class Settings(BaseSettings):
     # ── Server ─────────────────────────────────────────────────────────────
     host: str = "0.0.0.0"
     port: int = 8000
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = []
+
+    # ── Environment ──────────────────────────────────────────────────────
+    environment: str = "development"  # development | staging | production
+
+    # ── Upload limits ────────────────────────────────────────────────────
+    max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
 
     # ── Tesseract OCR ──────────────────────────────────────────────────────
     tesseract_cmd: str = ""
@@ -74,6 +80,13 @@ class Settings(BaseSettings):
     def uploads_dir(self) -> Path:
         """Runtime directory for uploaded files and generated artifacts."""
         path = self.backend_dir / "uploads"
+        path.mkdir(exist_ok=True)
+        return path
+
+    @property
+    def data_dir(self) -> Path:
+        """Directory for persistent data (SQLite DB). NOT web-accessible."""
+        path = self.backend_dir / "data"
         path.mkdir(exist_ok=True)
         return path
 

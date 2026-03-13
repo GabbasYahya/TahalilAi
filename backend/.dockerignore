@@ -8,9 +8,37 @@ dist/
 *.egg-info/
 .venv/
 venv/
+
+# ── Secrets & Environment ─────────────────────────────────
+.env
+.env.*
+
+# ── Runtime data (mounted as volumes, never baked into image)
 uploads/
+data/
 *.db
-*.gguf
+
+# ── LLM binaries (not used in container — Gemini only) ───
 bin/
 Models/
+*.gguf
+*.exe
+
+# ── Git / IDE / OS ────────────────────────────────────────
+.git
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Test / debug / temp ──────────────────────────────────
 tmpclaude-*
+test*.pdf
+test*.png
+debug_*.py
+*.log
+
+# ── Data CSVs (only needed for seeding, not runtime) ─────
+*.csv
+scripts/

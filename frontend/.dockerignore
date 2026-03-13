@@ -1,3 +1,18 @@
 node_modules/
 .next/
+
+# ── Secrets & Environment ─────────────────────────────────
+.env
+.env.*
 .env*.local
+
+# ── Git / IDE / OS ────────────────────────────────────────
+.git
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Test / misc ──────────────────────────────────────────
+*.log

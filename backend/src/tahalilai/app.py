@@ -14,6 +14,7 @@ Provides endpoints for:
 
 from __future__ import annotations
 
+import collections
 import os
 import shutil
 import time
@@ -22,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -50,6 +51,38 @@ from tahalilai.utils.security import sanitize_filename, validate_file
 
 # In-memory job store — replace with Redis / a database for production
 _jobs: dict[str, dict[str, Any]] = {}
+
+
+# ---------------------------------------------------------------------------
+# Rate limiter (simple in-memory, per-IP)
+# ---------------------------------------------------------------------------
+
+_rate_buckets: dict[str, collections.deque] = {}
+_RATE_LIMIT_WINDOW = 60  # seconds
+_RATE_LIMITS: dict[str, int] = {
+    "send-email": 3,
+    "send-whatsapp": 3,
+    "translate": 10,
+    "analyze": 5,
+}
+
+
+def _check_rate_limit(client_ip: str, action: str) -> bool:
+    """Return *True* if the request is within the rate limit, *False* if blocked."""
+    max_calls = _RATE_LIMITS.get(action, 30)
+    key = f"{client_ip}:{action}"
+    now = time.time()
+
+    bucket = _rate_buckets.setdefault(key, collections.deque())
+    # Purge old entries
+    while bucket and bucket[0] < now - _RATE_LIMIT_WINDOW:
+        bucket.popleft()
+
+    if len(bucket) >= max_calls:
+        return False
+
+    bucket.append(now)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +207,15 @@ def create_app() -> FastAPI:
 
             with open(file_path, "wb") as buf:
                 shutil.copyfileobj(file.file, buf)
+
+            # Enforce server-side file size limit
+            if file_path.stat().st_size > settings.max_upload_bytes:
+                file_path.unlink(missing_ok=True)
+                max_mb = settings.max_upload_bytes // (1024 * 1024)
+                return JSONResponse(
+                    {"status": "error", "message": f"File too large. Maximum size is {max_mb} MB."},
+                    status_code=413,
+                )
 
             try:
                 validate_file(file_path)
@@ -369,16 +411,16 @@ def create_app() -> FastAPI:
     @application.post("/send-email", response_model=None)
     async def send_email_endpoint(
         request: EmailRequest,
+        req: Request,
         background_tasks: BackgroundTasks,
     ) -> JSONResponse | dict[str, str]:
-        """Send the analysis report to the patient via Gmail SMTP.
-
-        Why BackgroundTasks?
-          Sending an email takes 2-5 seconds (network round-trip to Gmail).
-          We don't want the user's browser to hang waiting. So we:
-          1. Return {"status": "sending"} immediately (fast response).
-          2. Actually send the email in the background.
-        """
+        """Send the analysis report to the patient via Gmail SMTP."""
+        client_ip = req.client.host if req.client else "unknown"
+        if not _check_rate_limit(client_ip, "send-email"):
+            return JSONResponse(
+                {"status": "error", "message": "Too many requests. Please wait before sending another email."},
+                status_code=429,
+            )
         job = _jobs.get(request.job_id)
         if not job or job.get("status") != "completed":
             return JSONResponse(
@@ -425,9 +467,17 @@ def create_app() -> FastAPI:
     @application.post("/send-whatsapp", response_model=None)
     async def send_whatsapp_endpoint(
         request: WhatsAppRequest,
+        req: Request,
         background_tasks: BackgroundTasks,
     ) -> JSONResponse | dict[str, str]:
         """Send the analysis summary to the patient via WhatsApp."""
+        client_ip = req.client.host if req.client else "unknown"
+        if not _check_rate_limit(client_ip, "send-whatsapp"):
+            return JSONResponse(
+                {"status": "error", "message": "Too many requests. Please wait before sending another message."},
+                status_code=429,
+            )
+
         job = _jobs.get(request.job_id)
         if not job or job.get("status") != "completed":
             return JSONResponse(

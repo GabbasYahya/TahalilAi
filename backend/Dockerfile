@@ -46,9 +46,17 @@ COPY pyproject.toml ./
 # Re-install in editable mode so the package is importable
 RUN pip install --no-cache-dir -e .
 
-# Directory for uploaded files and generated PDFs/audio
-# This is mounted as a volume in docker-compose so data persists
-RUN mkdir -p uploads
+# Create a non-root user (mirrors frontend Dockerfile pattern)
+RUN addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --ingroup appgroup appuser
+
+# Directories for runtime data — owned by appuser
+#   uploads/  = temporary user files + generated PDFs/audio (StaticFiles mount)
+#   data/     = SQLite DB (NOT web-accessible)
+RUN mkdir -p uploads data \
+    && chown -R appuser:appgroup uploads data
+
+USER appuser
 
 EXPOSE 8000
 

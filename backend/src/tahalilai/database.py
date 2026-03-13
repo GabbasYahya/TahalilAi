@@ -21,8 +21,8 @@ class Base(DeclarativeBase):
 
 
 def _get_db_url() -> str:
-    # Keep DB inside uploads_dir so a single Docker volume covers both files and DB.
-    db_path = get_settings().uploads_dir / "tahalilai.db"
+    # DB lives in data/ (NOT uploads/) so it's never served by StaticFiles.
+    db_path = get_settings().data_dir / "tahalilai.db"
     return f"sqlite:///{db_path}"
 
 

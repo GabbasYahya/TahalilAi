@@ -72,7 +72,8 @@ def send_report_email(
     if pdf_path is not None:
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():
-            return {"status": "error", "message": f"PDF file not found: {pdf_path}"}
+            print(f"Email: PDF not found at {pdf_path}")
+            return {"status": "error", "message": "PDF report not found. Please regenerate it."}
 
     try:
         # Step 1: Build the MIME message (envelope + body + attachment)

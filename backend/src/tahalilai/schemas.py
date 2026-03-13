@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +127,8 @@ class EmailRequest(BaseModel):
     """Body for ``POST /send-email``."""
 
     job_id: str = Field(..., description="UUID of the completed analysis job")
-    recipient_email: str = Field(
-        ..., min_length=5, description="Recipient email address"
+    recipient_email: EmailStr = Field(
+        ..., description="Recipient email address"
     )
 
 
