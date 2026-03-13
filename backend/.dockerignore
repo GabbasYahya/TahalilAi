@@ -39,6 +39,7 @@ test*.png
 debug_*.py
 *.log
 
-# ── Data CSVs (only needed for seeding, not runtime) ─────
+# ── Data CSVs (exclude raw source files, keep clean seed files) ──
 *.csv
-scripts/
+!doctors_data_clean.csv
+!health_facilities_clean.csv
