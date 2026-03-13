@@ -106,6 +106,10 @@ async def _lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
     Base.metadata.create_all(bind=engine)
 
     cfg = get_settings()
+
+    from tahalilai.services.seeder import seed_all
+    seed_all(cfg.backend_dir)
+
     cleanup_task = asyncio.create_task(
         run_cleanup_loop(
             uploads_dir=cfg.uploads_dir,

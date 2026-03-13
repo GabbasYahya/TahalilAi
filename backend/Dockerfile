@@ -43,6 +43,9 @@ COPY --from=builder /install /usr/local
 COPY src/ ./src/
 COPY pyproject.toml ./
 
+# Seed data — CSV files used to populate doctors and hospitals on first startup
+COPY doctors_data_clean.csv health_facilities_clean.csv ./
+
 # Re-install in editable mode so the package is importable
 RUN pip install --no-cache-dir -e .
 
