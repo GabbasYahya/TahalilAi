@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from tahalilai.config import get_settings
@@ -28,9 +28,15 @@ def _get_db_url() -> str:
 
 engine = create_engine(
     _get_db_url(),
-    connect_args={"check_same_thread": False},  # required for SQLite + FastAPI
+    connect_args={"check_same_thread": False, "timeout": 30},
     echo=False,
 )
+
+# Enable WAL mode so reads (API requests) aren't blocked by the seeder's bulk writes
+@event.listens_for(engine, "connect")
+def _set_wal_mode(dbapi_conn, _):
+    dbapi_conn.execute("PRAGMA journal_mode=WAL")
+    dbapi_conn.execute("PRAGMA busy_timeout=30000")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
