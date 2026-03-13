@@ -7,9 +7,12 @@ import { useLanguage } from "@/context/LanguageContext";
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { RecommendedDoctors } from "@/components/RecommendedDoctors";
+import { RecommendedHospitals } from "@/components/RecommendedHospitals";
 import { InlineError } from "@/components/InlineError";
 import { UrgencyBanner } from "@/components/UrgencyBanner";
 import { NextStepsCard } from "@/components/NextStepsCard";
+import { StatusBadge } from "@/components/StatusBadge";
+import { BiomarkerTable } from "@/components/BiomarkerTable";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -25,9 +28,62 @@ interface RecommendedDoctor {
     profile_url: string;
 }
 
+interface RecommendedHospital {
+    id: number;
+    name: string;
+    category_code: string;
+    category_name: string;
+    facility_type: string;
+    region: string;
+    delegation: string;
+    commune: string;
+    departments: string;
+    phone: string;
+    address: string;
+}
+
+interface BiomarkerResult {
+    marker_name: string;
+    measured_value: string;
+    reference_range: string;
+    status: string;
+    clinical_significance: string;
+}
+
+interface AbnormalFindingResult {
+    marker: string;
+    issue: string;
+    possible_meanings: string[];
+    recommended_followup_tests: string[];
+}
+
+interface StructuredAnalysisData {
+    report_summary: {
+        overall_status: string;
+        short_explanation: string;
+        confidence_level: string;
+    };
+    patient_context: {
+        gender_inferred: string;
+        age_group_inferred: string;
+        inference_confidence: string;
+    };
+    biomarker_analysis: BiomarkerResult[];
+    abnormal_findings: AbnormalFindingResult[];
+    recommended_specialties: { specialty: string; reason: string }[];
+    health_recommendations: string[];
+    missing_information: {
+        needs_age: boolean;
+        needs_gender: boolean;
+        additional_questions: string[];
+    };
+    system_feedback: string[];
+}
+
 interface AnalysisData {
     job_id?: string;
     text: string;
+    structured_analysis?: StructuredAnalysisData | null;
     arabicText?: string;
     audioUrl?: string;
     pdfUrl?: string;
@@ -36,6 +92,7 @@ interface AnalysisData {
     recommended_specialities?: string[];
     urgency?: string;
     recommended_doctors?: RecommendedDoctor[];
+    recommended_hospitals?: RecommendedHospital[];
 }
 
 export default function ResultsPage() {
@@ -223,8 +280,10 @@ export default function ResultsPage() {
 
     const isArabic = activeTab === "arabic";
     const content = isArabic ? (analysisData.arabicText || "") : analysisData.text;
+    const structured = !isArabic ? (analysisData.structured_analysis ?? null) : null;
     const urgency = analysisData.urgency || "routine";
     const hasDoctors = (analysisData.recommended_doctors?.length ?? 0) > 0;
+    const hasHospitals = (analysisData.recommended_hospitals?.length ?? 0) > 0;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 dark:from-slate-900 via-primary-50/20 dark:via-slate-900 to-primary-50/30 dark:to-slate-900 px-4 py-8">
@@ -310,38 +369,119 @@ export default function ResultsPage() {
                     </div>
 
                     {/* Collapsible Report Content */}
-                    <div
-                        className={`relative px-8 py-8 md:px-10 md:py-10 min-h-[200px] ${isArabic ? "text-right" : "text-left"} ${!reportExpanded ? "max-h-64 overflow-hidden" : ""}`}
-                        dir={isArabic ? "rtl" : "ltr"}
-                    >
-                        {!reportExpanded && (
-                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-slate-800 to-transparent" />
-                        )}
-                        <article className="prose prose-lg prose-slate dark:prose-invert max-w-none prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:font-bold prose-p:text-slate-600 dark:prose-p:text-slate-400 prose-p:leading-relaxed prose-li:text-slate-600 dark:prose-li:text-slate-400 prose-strong:text-primary-900 prose-strong:font-semibold">
-                            <Markdown remarkPlugins={[remarkGfm]}>
-                                {content || "No content available."}
-                            </Markdown>
-                        </article>
-                    </div>
+                    {structured ? (
+                        /* ── Structured View ── */
+                        <div className="px-8 py-6 md:px-10 space-y-6">
+                            {/* Status summary */}
+                            <StatusBadge
+                                overallStatus={structured.report_summary.overall_status}
+                                confidence={structured.report_summary.confidence_level}
+                                shortExplanation={structured.report_summary.short_explanation}
+                            />
 
-                    {/* Expand / Collapse toggle */}
-                    <div className="border-t border-slate-100 dark:border-slate-700 px-8 py-4">
-                        <button
-                            onClick={() => setReportExpanded((v) => !v)}
-                            className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
-                        >
-                            {reportExpanded ? t("results.collapse") || "Collapse report" : t("results.readFull") || "Read full analysis"}
-                            <svg
-                                className={`h-4 w-4 transition-transform duration-200 ${reportExpanded ? "rotate-180" : ""}`}
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
+                            {/* Biomarker table */}
+                            <BiomarkerTable biomarkers={structured.biomarker_analysis} />
+
+                            {/* Abnormal findings */}
+                            {structured.abnormal_findings.length > 0 && (
+                                <div className="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-red-100 dark:ring-red-900/30 shadow-sm overflow-hidden">
+                                    <div className="px-5 py-3 bg-red-50 dark:bg-red-950/30 border-b border-red-100 dark:border-red-900/40">
+                                        <h3 className="text-sm font-bold text-red-800 dark:text-red-300">Abnormal Findings</h3>
+                                    </div>
+                                    <div className="divide-y divide-red-50 dark:divide-red-900/20">
+                                        {structured.abnormal_findings.map((f, i) => (
+                                            <div key={i} className="px-5 py-4 space-y-2">
+                                                <p className="text-sm font-semibold text-red-700 dark:text-red-400">{f.marker} — <span className="font-normal">{f.issue}</span></p>
+                                                {f.possible_meanings.length > 0 && (
+                                                    <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-0.5 pl-3">
+                                                        {f.possible_meanings.map((m, j) => <li key={j} className="list-disc ml-2">{m}</li>)}
+                                                    </ul>
+                                                )}
+                                                {f.recommended_followup_tests.length > 0 && (
+                                                    <p className="text-xs text-slate-500 dark:text-slate-500">Follow-up: {f.recommended_followup_tests.join(", ")}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Health recommendations */}
+                            {structured.health_recommendations.length > 0 && (
+                                <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 ring-1 ring-emerald-100 dark:ring-emerald-900/30 px-5 py-4">
+                                    <h3 className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mb-2">Health Recommendations</h3>
+                                    <ul className="space-y-1.5">
+                                        {structured.health_recommendations.map((r, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+                                                <span className="mt-0.5 text-emerald-500">&#10003;</span>
+                                                {r}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Specialty recommendations */}
+                            {structured.recommended_specialties.length > 0 && (
+                                <div className="rounded-2xl bg-sky-50 dark:bg-sky-950/20 ring-1 ring-sky-100 dark:ring-sky-900/30 px-5 py-4">
+                                    <h3 className="text-sm font-bold text-sky-800 dark:text-sky-300 mb-2">Recommended Consultation</h3>
+                                    {structured.recommended_specialties.map((s, i) => (
+                                        <div key={i} className="mb-2">
+                                            <p className="text-sm font-semibold text-sky-700 dark:text-sky-400">{s.specialty}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-500">{s.reason}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Collapsible full markdown */}
+                            <div>
+                                <button
+                                    onClick={() => setReportExpanded((v) => !v)}
+                                    className="flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-primary-500 transition-colors"
+                                >
+                                    {reportExpanded ? "Hide raw analysis" : "Show full AI analysis text"}
+                                    <svg className={`h-4 w-4 transition-transform duration-200 ${reportExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                {reportExpanded && (
+                                    <article className="mt-4 prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:text-slate-500 dark:prose-p:text-slate-400">
+                                        <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
+                                    </article>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* ── Legacy Markdown View ── */
+                        <>
+                            <div
+                                className={`relative px-8 py-8 md:px-10 md:py-10 min-h-[200px] ${isArabic ? "text-right" : "text-left"} ${!reportExpanded ? "max-h-64 overflow-hidden" : ""}`}
+                                dir={isArabic ? "rtl" : "ltr"}
                             >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-                            </svg>
-                        </button>
-                    </div>
+                                {!reportExpanded && (
+                                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-slate-800 to-transparent" />
+                                )}
+                                <article className="prose prose-lg prose-slate dark:prose-invert max-w-none prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-headings:font-bold prose-p:text-slate-600 dark:prose-p:text-slate-400 prose-p:leading-relaxed prose-li:text-slate-600 dark:prose-li:text-slate-400 prose-strong:text-primary-900 prose-strong:font-semibold">
+                                    <Markdown remarkPlugins={[remarkGfm]}>
+                                        {content || "No content available."}
+                                    </Markdown>
+                                </article>
+                            </div>
+                            {/* Expand / Collapse toggle */}
+                            <div className="border-t border-slate-100 dark:border-slate-700 px-8 py-4">
+                                <button
+                                    onClick={() => setReportExpanded((v) => !v)}
+                                    className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                                >
+                                    {reportExpanded ? t("results.collapse") || "Collapse report" : t("results.readFull") || "Read full analysis"}
+                                    <svg className={`h-4 w-4 transition-transform duration-200 ${reportExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* ─── Urgency Banner ─── */}
@@ -354,6 +494,14 @@ export default function ResultsPage() {
                 {hasDoctors && (
                     <RecommendedDoctors
                         doctors={analysisData.recommended_doctors!}
+                        specialities={analysisData.recommended_specialities || []}
+                    />
+                )}
+
+                {/* ─── Recommended Hospitals ─── */}
+                {hasHospitals && (
+                    <RecommendedHospitals
+                        hospitals={analysisData.recommended_hospitals!}
                         specialities={analysisData.recommended_specialities || []}
                     />
                 )}

@@ -57,6 +57,18 @@
   --font-sans: var(--font-inter);
 }
 
+/* Apply Tajawal for Arabic UI */
+:lang(ar),
+[dir="rtl"] {
+  font-family: var(--font-tajawal), "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+/* RTL prose alignment */
+[dir="rtl"] .prose {
+  text-align: right;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #111827;

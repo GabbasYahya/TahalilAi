@@ -13,7 +13,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from tahalilai.config import get_settings
-from tahalilai.models import Doctor
+from tahalilai.models import Doctor, HealthFacility
 
 try:
     from google import genai
@@ -146,15 +146,16 @@ def find_recommended_doctors(
         query = db.query(Doctor).filter(Doctor.primary_speciality.ilike(f"%{spec}%"))
 
         if city:
+            city_pattern = f"%{city}%"
             city_doctors = (
-                query.filter(Doctor.city.ilike(city))
+                query.filter(Doctor.city.ilike(city_pattern))
                 .order_by(func.random())
                 .limit(limit_per_speciality)
                 .all()
             )
             if len(city_doctors) < limit_per_speciality:
                 other_doctors = (
-                    query.filter(~Doctor.city.ilike(city))
+                    query.filter(~Doctor.city.ilike(city_pattern))
                     .order_by(func.random())
                     .limit(limit_per_speciality - len(city_doctors))
                     .all()
@@ -183,3 +184,129 @@ def find_recommended_doctors(
                 )
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Public hospital / health-facility recommendation
+# ---------------------------------------------------------------------------
+
+# Maps doctor speciality keywords → hospital department keywords to search for
+_SPEC_TO_DEPT: dict[str, str] = {
+    "cardiologue": "Cardiologie",
+    "cardiaque": "Cardiologie",
+    "neurologue": "Neurologie",
+    "neurochirurgien": "Neurologie",
+    "gastro": "Gastro-entérologie",
+    "gastroentérologue": "Gastro-entérologie",
+    "gynécologue": "Gynécologie",
+    "gynécologie": "Gynécologie",
+    "pédiatre": "Pédiatrie",
+    "pneumologue": "Pneumologie",
+    "oncologue": "Oncologie",
+    "hématologue": "Hématologie",
+    "psychiatre": "Psychiatrie",
+    "psychologue": "Psychiatrie",
+    "néphrologue": "Néphrologie",  # not in most hospital depts, fallback general
+    "urologue": "Chirurgie",
+    "chirurgien": "Chirurgie",
+    "traumatologue": "Chirurgie",
+    "rhumatologue": "Médecine générale",
+    "endocrinologue": "Médecine générale",
+    "diabétologue": "Médecine générale",
+    "ophtalmologue": "Médecine générale",
+    "dermatologue": "Médecine générale",
+    "allergologue": "Médecine générale",
+    "médecin": "Médecine générale",
+    "radiologue": "Radiologie",
+    "maternité": "Maternité",
+    "obstétricien": "Maternité",
+    "reproduction": "Santé de la reproduction",
+    "tuberculose": "Tuberculose",
+    "respiratoire": "Maladies respiratoires",
+}
+
+
+def _speciality_to_dept_keyword(speciality: str) -> str:
+    """Map a doctor speciality string to a hospital department keyword."""
+    s_lower = speciality.lower()
+    for key, dept in _SPEC_TO_DEPT.items():
+        if key in s_lower:
+            return dept
+    # Default: general medicine covers almost everything
+    return "Médecine générale"
+
+
+def find_recommended_hospitals(
+    specialities: list[str],
+    delegation: str | None,
+    region: str | None,
+    db: Session,
+    limit_per_speciality: int = 3,
+) -> list[HealthFacility]:
+    """Find public health facilities relevant to the recommended specialities.
+
+    Prioritises:
+    1. Hospitals (HIR/HR/HP) in the same delegation/city, matching department
+    2. Hospitals in the same region if delegation doesn't have enough
+    3. Specialised centres (CRO for oncology, CDTMR for pneumology, CPU for psychiatry)
+    """
+    seen_ids: set[int] = set()
+    results: list[HealthFacility] = []
+    hospital_types = ("Hôpital",)
+
+    for spec in specialities:
+        dept_kw = _speciality_to_dept_keyword(spec)
+
+        # Base query: hospitals with matching department
+        base = (
+            db.query(HealthFacility)
+            .filter(
+                HealthFacility.facility_type.in_(hospital_types),
+                HealthFacility.departments.ilike(f"%{dept_kw}%"),
+            )
+        )
+
+        # Priority 1: same delegation
+        if delegation:
+            prio1 = (
+                base.filter(HealthFacility.delegation.ilike(f"%{delegation}%"))
+                .limit(limit_per_speciality)
+                .all()
+            )
+        else:
+            prio1 = []
+
+        # Priority 2: same region, fill remaining slots
+        remaining = limit_per_speciality - len(prio1)
+        prio1_ids = {f.id for f in prio1}
+        if remaining > 0 and region:
+            prio2 = (
+                base.filter(
+                    HealthFacility.region.ilike(f"%{region}%"),
+                    ~HealthFacility.id.in_(prio1_ids),
+                )
+                .limit(remaining)
+                .all()
+            )
+        else:
+            prio2 = []
+
+        # Priority 3: anywhere in Morocco, fill remaining
+        combined = prio1 + prio2
+        remaining = limit_per_speciality - len(combined)
+        combined_ids = {f.id for f in combined}
+        if remaining > 0:
+            prio3 = (
+                base.filter(~HealthFacility.id.in_(combined_ids))
+                .limit(remaining)
+                .all()
+            )
+            combined = combined + prio3
+
+        for fac in combined:
+            if fac.id not in seen_ids:
+                seen_ids.add(fac.id)
+                results.append(fac)
+
+    return results
+

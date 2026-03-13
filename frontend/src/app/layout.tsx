@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Tajawal } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -8,6 +8,12 @@ import { LanguageProvider } from "@/context/LanguageContext";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const tajawal = Tajawal({
+  variable: "--font-tajawal",
+  subsets: ["arabic"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -39,7 +45,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${inter.variable} antialiased bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100`}>
+      <body className={`${inter.variable} ${tajawal.variable} antialiased bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100`}>
         <LanguageProvider>
           <div className="flex min-h-screen flex-col">
             <Header />

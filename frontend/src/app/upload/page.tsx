@@ -122,11 +122,13 @@ export default function UploadPage() {
             localStorage.setItem("analysisResult", JSON.stringify({
               job_id: statusData.result.job_id || jobId,
               text: statusData.result.analysis,
+              structured_analysis: statusData.result.structured_analysis || null,
               audioUrl: statusData.result.audio_url,
               pdfUrl: statusData.result.pdf_url,
               recommended_specialities: statusData.result.recommended_specialities || [],
               urgency: statusData.result.urgency || "routine",
               recommended_doctors: statusData.result.recommended_doctors || [],
+              recommended_hospitals: statusData.result.recommended_hospitals || [],
               timestamp: Date.now()
             }));
 

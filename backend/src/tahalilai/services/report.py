@@ -20,14 +20,24 @@ from fpdf.enums import XPos, YPos  # noqa: F401 – kept for fpdf2 compatibility
 # ---------------------------------------------------------------------------
 # Colour palette
 # ---------------------------------------------------------------------------
-_NAVY   = (19,  82, 118)    # header background
-_BLUE   = (36, 113, 163)    # section-header strip
-_BGBLUE = (234, 242, 248)   # section body tint
-_DARK   = (28,  40,  51)    # body text
-_MUTED  = (120, 130, 140)   # footer / meta
-_WHITE  = (255, 255, 255)
-_RULE   = (189, 195, 199)   # thin divider
-_ACCENT = (93, 173, 226)    # bright accent line under banner
+_NAVY    = (19,  82, 118)    # header background
+_BLUE    = (36, 113, 163)    # section-header strip
+_BGBLUE  = (234, 242, 248)   # section body tint
+_DARK    = (28,  40,  51)    # body text
+_MUTED   = (120, 130, 140)   # footer / meta
+_WHITE   = (255, 255, 255)
+_RULE    = (189, 195, 199)   # thin divider
+_ACCENT  = (93, 173, 226)    # bright accent line under banner
+
+# Status colours for structured report
+_GREEN     = (39, 174,  96)   # normal
+_GREENTINT = (235, 251, 238)
+_SKYTINT   = (232, 246, 253)
+_AMBERTEXT = (126, 82,   0)
+_AMBERTIN  = (255, 249, 219)
+_ORANGE    = (211, 84,   0)
+_RED       = (192, 57,  43)
+_REDTINT   = (253, 237, 236)
 
 # ---------------------------------------------------------------------------
 # Layout constants
@@ -366,14 +376,21 @@ def generate_pdf_report(
     output_path: str | Path,
     recommended_doctors: list[dict] | None = None,
     urgency: str = "routine",
+    structured: object | None = None,
 ) -> Path:
     """Generate a styled English PDF report from analysis text.
+
+    When *structured* (a ``StructuredAnalysis`` instance) is provided the
+    report renders a rich layout with a status banner, biomarker table,
+    abnormal findings, and recommendations.  Falls back to plain-text
+    Markdown rendering when *structured* is ``None``.
 
     Args:
         text_content: Analysis text (may contain light markdown).
         output_path: Destination path for the ``.pdf`` file.
         recommended_doctors: Optional list of doctor dicts to append.
         urgency: Urgency level – ``"urgent"`` adds a critical-values notice.
+        structured: Optional ``StructuredAnalysis`` for rich rendering.
 
     Returns:
         The :class:`~pathlib.Path` to the generated file.
@@ -388,7 +405,10 @@ def generate_pdf_report(
     pdf.set_auto_page_break(auto=True, margin=22)
     pdf.add_page()
 
-    _render_english(pdf, text_content)
+    if structured is not None:
+        _render_structured_en(pdf, structured)
+    else:
+        _render_english(pdf, text_content)
 
     if urgency == "urgent":
         _render_urgency_notice_en(pdf)
@@ -442,9 +462,6 @@ def generate_arabic_pdf_report(
 # ---------------------------------------------------------------------------
 # Urgency notice renderers
 # ---------------------------------------------------------------------------
-
-_RED    = (192, 57,  43)
-_REDTINT = (253, 237, 236)
 
 def _render_urgency_notice_en(pdf: _PDFReport) -> None:
     """Render a red critical-values warning box (English)."""
@@ -509,6 +526,7 @@ def _render_doctors_en(pdf: _PDFReport, doctors: list[dict]) -> None:
     except Exception:
         pdf.set_font("Helvetica", "B", 11)
     pdf.multi_cell(0, 8, "  Recommended Doctors", fill=True, align="L")
+    pdf.set_x(pdf.l_margin)  # fpdf2 2.8.x: reset x after fill multi_cell
     pdf.set_text_color(*_DARK)
     pdf.ln(2)
 
@@ -519,6 +537,7 @@ def _render_doctors_en(pdf: _PDFReport, doctors: list[dict]) -> None:
             pdf.set_font("Helvetica", "B", 10)
         name = f"{doc.get('title', '')} {doc.get('name', '')}".strip()
         pdf.multi_cell(0, 6, name, align="L")
+        pdf.set_x(pdf.l_margin)  # reset after name
 
         try:
             pdf.set_font(pdf._font, "", pdf._size_body - 1)
@@ -529,14 +548,19 @@ def _render_doctors_en(pdf: _PDFReport, doctors: list[dict]) -> None:
         speciality = doc.get("speciality", "")
         if speciality:
             pdf.multi_cell(0, 5, f"  Specialty: {speciality}", align="L")
+            pdf.set_x(pdf.l_margin)
         phone = doc.get("phone", "")
         if phone:
             pdf.multi_cell(0, 5, f"  Phone: {phone}", align="L")
+            pdf.set_x(pdf.l_margin)
         address = doc.get("address", "")
         city    = doc.get("city", "")
         location = ", ".join(filter(None, [address, city]))
         if location:
-            pdf.multi_cell(0, 5, f"  Address: {location}", align="L")
+            # Keep English report clean: strip chars not renderable in current font
+            safe_location = location.encode("latin-1", "replace").decode("latin-1")
+            pdf.multi_cell(0, 5, f"  Address: {safe_location}", align="L")
+            pdf.set_x(pdf.l_margin)
 
         pdf.set_text_color(*_DARK)
         pdf.ln(3)
@@ -552,6 +576,7 @@ def _render_doctors_ar(pdf: _PDFReport, doctors: list[dict]) -> None:
     except Exception:
         pdf.set_font("Helvetica", "", 12)
     pdf.multi_cell(0, 9, _prepare_arabic("الأطباء الموصى بهم  "), fill=True, align="R")
+    pdf.set_x(pdf.l_margin)  # fpdf2 2.8.x: reset x after fill multi_cell
     pdf.set_text_color(*_DARK)
     pdf.ln(2)
 
@@ -562,6 +587,7 @@ def _render_doctors_ar(pdf: _PDFReport, doctors: list[dict]) -> None:
             pdf.set_font("Helvetica", "", 11)
         name = f"{doc.get('title', '')} {doc.get('name', '')}".strip()
         pdf.multi_cell(0, 7, _prepare_arabic(name), align="R")
+        pdf.set_x(pdf.l_margin)  # reset after name
 
         try:
             pdf.set_font(pdf._font, "", pdf._size_body - 1)
@@ -572,14 +598,17 @@ def _render_doctors_ar(pdf: _PDFReport, doctors: list[dict]) -> None:
         speciality = doc.get("speciality", "")
         if speciality:
             pdf.multi_cell(0, 6, _prepare_arabic(f"التخصص: {speciality}  "), align="R")
+            pdf.set_x(pdf.l_margin)
         phone = doc.get("phone", "")
         if phone:
             pdf.multi_cell(0, 6, _prepare_arabic(f"الهاتف: {phone}  "), align="R")
+            pdf.set_x(pdf.l_margin)
         address = doc.get("address", "")
         city    = doc.get("city", "")
         location = ", ".join(filter(None, [address, city]))
         if location:
             pdf.multi_cell(0, 6, _prepare_arabic(f"العنوان: {location}  "), align="R")
+            pdf.set_x(pdf.l_margin)
 
         pdf.set_text_color(*_DARK)
         pdf.ln(3)
@@ -604,3 +633,253 @@ def _safe_cell_r(pdf: _PDFReport, text: str) -> None:
         pdf.multi_cell(0, _LH + 1, text, align="R")
     except Exception:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Structured PDF rendering helpers
+# ---------------------------------------------------------------------------
+
+_STATUS_COLORS = {
+    "normal":        (_GREEN,  _GREENTINT, "All Normal"),
+    "mostly_normal": (_BLUE,   _SKYTINT,   "Mostly Normal"),
+    "abnormal":      (_ORANGE, _AMBERTIN,  "Abnormal Results"),
+    "critical":      (_RED,    _REDTINT,   "Critical Values Detected"),
+}
+
+_BIOMARKER_STATUS_LABEL = {
+    "normal":     "Normal",
+    "high":       "High",
+    "low":        "Low",
+    "borderline": "Borderline",
+}
+
+
+def _section_header(pdf: _PDFReport, title: str) -> None:
+    """Draw a blue filled section header bar."""
+    pdf.ln(5)
+    pdf.set_fill_color(*_BLUE)
+    pdf.set_text_color(*_WHITE)
+    try:
+        pdf.set_font(pdf._font_bold, "B", pdf._size_section)
+    except Exception:
+        pdf.set_font("Helvetica", "B", 11)
+    pdf.multi_cell(0, 8, f"  {title}", fill=True, align="L")
+    pdf.set_x(pdf.l_margin)
+    pdf.set_text_color(*_DARK)
+    pdf.ln(2)
+
+
+def _render_status_banner(pdf: _PDFReport, structured) -> None:  # type: ignore[no-untyped-def]
+    """Render colored overall-status banner + short explanation."""
+    status = structured.report_summary.overall_status.value
+    fg, bg, label = _STATUS_COLORS.get(status, (_BLUE, _SKYTINT, status.replace("_", " ").title()))
+    confidence = structured.report_summary.confidence_level.value.capitalize()
+    explanation = structured.report_summary.short_explanation
+
+    pdf.ln(4)
+    pdf.set_fill_color(*bg)
+    pdf.set_draw_color(*fg)
+    pdf.set_line_width(0.6)
+
+    # Status label line
+    pdf.set_text_color(*fg)
+    try:
+        pdf.set_font(pdf._font_bold, "B", 13)
+    except Exception:
+        pdf.set_font("Helvetica", "B", 13)
+    pdf.multi_cell(0, 9, f"  {label}  \u2014  {confidence} confidence", fill=True, align="L")
+    pdf.set_x(pdf.l_margin)
+
+    # Explanation line(s)
+    pdf.set_text_color(*_DARK)
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 10)
+    pdf.multi_cell(0, 6, f"  {explanation}", fill=True, align="L")
+    pdf.set_x(pdf.l_margin)
+    pdf.set_line_width(0.2)
+    pdf.ln(3)
+
+
+def _render_patient_context(pdf: _PDFReport, structured) -> None:  # type: ignore[no-untyped-def]
+    """Render patient context row (gender / age group)."""
+    ctx = structured.patient_context
+    gender = ctx.gender_inferred.value.capitalize()
+    age_group = ctx.age_group_inferred.value.replace("_", " ").capitalize()
+    if gender == "Unknown" and age_group == "Unknown":
+        return
+
+    _section_header(pdf, "Patient Profile")
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*_DARK)
+    row = [f"Gender: {gender}", f"Age Group: {age_group}"]
+    pdf.multi_cell(0, 6, "  " + "    \u2022    ".join(row), align="L")
+    pdf.set_x(pdf.l_margin)
+
+
+def _render_biomarker_table(pdf: _PDFReport, biomarkers: list) -> None:  # type: ignore[no-untyped-def]
+    """Render a formatted biomarker table."""
+    if not biomarkers:
+        return
+
+    _section_header(pdf, "Biomarker Analysis")
+
+    cw = pdf.w - 2 * _MARGIN
+    # Column widths: Marker 38%, Value 15%, Reference 22%, Status 12%, Note 13%
+    col_w = [cw * 0.32, cw * 0.14, cw * 0.20, cw * 0.13, cw * 0.21]
+    headers = ["Marker", "Value", "Ref. Range", "Status", "Significance"]
+
+    # Header row
+    pdf.set_fill_color(*_BGBLUE)
+    pdf.set_text_color(*_DARK)
+    try:
+        pdf.set_font(pdf._font_bold, "B", 8)
+    except Exception:
+        pdf.set_font("Helvetica", "B", 8)
+
+    for i, h in enumerate(headers):
+        pdf.cell(col_w[i], 7, h, border=1, fill=True, align="C")
+    pdf.ln()
+
+    # Data rows
+    try:
+        pdf.set_font(pdf._font, "", 8)
+    except Exception:
+        pdf.set_font("Helvetica", "", 8)
+
+    status_fg = {
+        "normal": _GREEN,
+        "high": _ORANGE,
+        "low": _BLUE,
+        "borderline": _AMBERTEXT,
+    }
+
+    for bm in biomarkers:
+        status_val = bm.status.value
+        fg = status_fg.get(status_val, _DARK)
+        label = _BIOMARKER_STATUS_LABEL.get(status_val, status_val.capitalize())
+
+        # Truncate long strings for table fit
+        sig = bm.clinical_significance
+        if len(sig) > 55:
+            sig = sig[:52] + "..."
+
+        pdf.set_text_color(*_DARK)
+        pdf.cell(col_w[0], 6, _trunc(bm.marker_name, 28), border=1)
+        pdf.cell(col_w[1], 6, _trunc(bm.measured_value, 12), border=1, align="C")
+        pdf.cell(col_w[2], 6, _trunc(bm.reference_range, 18), border=1, align="C")
+        pdf.set_text_color(*fg)
+        pdf.cell(col_w[3], 6, label, border=1, align="C")
+        pdf.set_text_color(*_MUTED)
+        pdf.cell(col_w[4], 6, sig, border=1)
+        pdf.set_text_color(*_DARK)
+        pdf.ln()
+
+    pdf.set_x(pdf.l_margin)
+    pdf.ln(2)
+
+
+def _render_abnormal_findings(pdf: _PDFReport, findings: list) -> None:  # type: ignore[no-untyped-def]
+    """Render abnormal findings as boxed entries."""
+    if not findings:
+        return
+
+    _section_header(pdf, "Abnormal Findings")
+
+    for finding in findings:
+        try:
+            pdf.set_font(pdf._font_bold, "B", pdf._size_body)
+        except Exception:
+            pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*_RED)
+        pdf.multi_cell(0, 6, f"  {finding.marker}: {finding.issue}", align="L")
+        pdf.set_x(pdf.l_margin)
+
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body - 1)
+        except Exception:
+            pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*_DARK)
+
+        if finding.possible_meanings:
+            pdf.multi_cell(0, 5, "  Possible meanings:", align="L")
+            pdf.set_x(pdf.l_margin)
+            for m in finding.possible_meanings:
+                pdf.multi_cell(0, 5, f"    \u2022 {m}", align="L")
+                pdf.set_x(pdf.l_margin)
+
+        if finding.recommended_followup_tests:
+            pdf.set_text_color(*_MUTED)
+            tests = ", ".join(finding.recommended_followup_tests)
+            pdf.multi_cell(0, 5, f"  Follow-up tests: {tests}", align="L")
+            pdf.set_x(pdf.l_margin)
+            pdf.set_text_color(*_DARK)
+
+        pdf.ln(2)
+
+
+def _render_health_recommendations(pdf: _PDFReport, recs: list) -> None:  # type: ignore[no-untyped-def]
+    """Render health recommendations as a bullet list."""
+    if not recs:
+        return
+
+    _section_header(pdf, "Health Recommendations")
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*_DARK)
+
+    for rec in recs:
+        pdf.multi_cell(0, 6, f"  \u2022  {rec}", align="L")
+        pdf.set_x(pdf.l_margin)
+    pdf.ln(1)
+
+
+def _render_specialty_recommendations(pdf: _PDFReport, specialties: list) -> None:  # type: ignore[no-untyped-def]
+    """Render recommended specialties with reasons."""
+    if not specialties:
+        return
+
+    _section_header(pdf, "Recommended Medical Consultation")
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*_DARK)
+
+    for sp in specialties:
+        try:
+            pdf.set_font(pdf._font_bold, "B", pdf._size_body)
+        except Exception:
+            pdf.set_font("Helvetica", "B", 10)
+        pdf.multi_cell(0, 6, f"  \u27a4  {sp.specialty}", align="L")
+        pdf.set_x(pdf.l_margin)
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body - 1)
+        except Exception:
+            pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*_MUTED)
+        pdf.multi_cell(0, 5, f"     {sp.reason}", align="L")
+        pdf.set_x(pdf.l_margin)
+        pdf.set_text_color(*_DARK)
+        pdf.ln(1)
+
+
+def _render_structured_en(pdf: _PDFReport, structured) -> None:  # type: ignore[no-untyped-def]
+    """Master renderer: writes all structured sections in order."""
+    _render_status_banner(pdf, structured)
+    _render_patient_context(pdf, structured)
+    _render_biomarker_table(pdf, structured.biomarker_analysis)
+    _render_abnormal_findings(pdf, structured.abnormal_findings)
+    _render_health_recommendations(pdf, structured.health_recommendations)
+    _render_specialty_recommendations(pdf, structured.recommended_specialties)
+
+
+def _trunc(text: str, max_len: int) -> str:
+    """Truncate text to max_len characters."""
+    return text if len(text) <= max_len else text[:max_len - 1] + "\u2026"

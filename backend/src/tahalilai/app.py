@@ -33,10 +33,12 @@ from tahalilai.schemas import (
     AudioRequest,
     ChatRequest,
     EmailRequest,
+    StructuredAnalysis,
     TranslationRequest,
     WhatsAppRequest,
 )
 from tahalilai.services.analyzer import analyze_text
+from tahalilai.services.renderer import render_markdown
 from tahalilai.services.chat import answer_question
 from tahalilai.services.email_sender import send_report_email
 from tahalilai.services.ocr import perform_ocr
@@ -66,7 +68,7 @@ async def _lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
     import asyncio
 
     from tahalilai.database import Base, engine
-    from tahalilai.models import Doctor  # noqa: F401 — register model
+    from tahalilai.models import Doctor, HealthFacility  # noqa: F401 — register models
 
     Base.metadata.create_all(bind=engine)
 
@@ -122,8 +124,10 @@ def create_app() -> FastAPI:
 
     # ── Routers ─────────────────────────────────────────────────────
     from tahalilai.routers.doctors import router as doctors_router
+    from tahalilai.routers.hospitals import router as hospitals_router
 
     application.include_router(doctors_router)
+    application.include_router(hospitals_router)
 
     application.mount("/uploads", StaticFiles(directory=str(uploads)), name="uploads")
 
@@ -328,20 +332,21 @@ def create_app() -> FastAPI:
     @application.post("/translate", response_model=None)
     async def translate(request: TranslationRequest) -> JSONResponse | dict[str, str]:
         """Translate a completed analysis to Arabic via Gemini."""
-        if request.job_id not in _jobs:
-            return JSONResponse({"status": "error", "message": "Job not found"}, status_code=404)
+        # Job may no longer be in memory (e.g. after a server restart).
+        # We still translate the text — we just skip writing the result back.
+        job_in_memory = request.job_id in _jobs
 
         try:
             arabic = translate_medical_report(request.text)
             if arabic.startswith("Error"):
                 return JSONResponse({"status": "error", "message": arabic}, status_code=502)
 
-            # Generate Arabic PDF in background
+            # Generate Arabic PDF
             arabic_pdf_url: str | None = None
             try:
                 ar_pdf_name = f"{request.job_id}_report_ar.pdf"
                 ar_pdf_path = settings.uploads_dir / ar_pdf_name
-                job_result = _jobs[request.job_id].get("result", {})
+                job_result = _jobs[request.job_id].get("result", {}) if job_in_memory else {}
                 generate_arabic_pdf_report(
                     arabic,
                     ar_pdf_path,
@@ -352,7 +357,7 @@ def create_app() -> FastAPI:
             except Exception as pdf_exc:
                 print(f"[{request.job_id[:8]}] Arabic PDF failed: {pdf_exc}")
 
-            if "result" in _jobs[request.job_id]:
+            if job_in_memory and "result" in _jobs[request.job_id]:
                 _jobs[request.job_id]["result"]["arabic_analysis"] = arabic
                 _jobs[request.job_id]["result"]["arabic_pdf_url"] = arabic_pdf_url
             return {"status": "success", "arabic_text": arabic, "arabic_pdf_url": arabic_pdf_url}
@@ -457,6 +462,91 @@ def create_app() -> FastAPI:
 
 
 # ---------------------------------------------------------------------------
+# EN → FR specialty mapping (structured analysis returns English names)
+# ---------------------------------------------------------------------------
+
+_EN_TO_FR_SPECIALITY: dict[str, str] = {
+    "general practitioner": "Médecin généraliste",
+    "cardiologist": "Cardiologue",
+    "dermatologist": "Dermatologue",
+    "endocrinologist": "Endocrinologue",
+    "gastroenterologist": "Gastro-entérologue",
+    "gynecologist": "Gynécologue",
+    "obstetrician": "Gynécologue obstétricien",
+    "nephrologist": "Néphrologue",
+    "neurologist": "Neurologue",
+    "ophthalmologist": "Ophtalmologue",
+    "ent specialist": "Oto-rhino-laryngologue",
+    "otolaryngologist": "Oto-rhino-laryngologue",
+    "pediatrician": "Pédiatre",
+    "pulmonologist": "Pneumologue",
+    "psychiatrist": "Psychiatre",
+    "radiologist": "Radiologue",
+    "rheumatologist": "Rhumatologue",
+    "urologist": "Urologue",
+    "diabetologist": "Diabétologue",
+    "allergist": "Allergologue",
+    "internist": "Médecin interniste",
+    "internal medicine": "Médecin interniste",
+    "dentist": "Dentiste",
+    "oncologist": "Oncologue",
+    "hematologist": "Hématologue",
+    "nutritionist": "Nutritionniste",
+    "physiotherapist": "Kinésithérapeute",
+    "psychologist": "Psychologue",
+    "anesthesiologist": "Anesthésiste-réanimateur",
+    "neurosurgeon": "Neurochirurgien",
+    "general surgeon": "Chirurgien général",
+    "orthopedic surgeon": "Traumatologue-orthopédiste",
+    "hepatologist": "Gastro-entérologue",
+}
+
+
+def _map_specialties_to_french(english_specs: list[str]) -> list[str]:
+    """Map English specialty names to French canonical names for DB lookup."""
+    result: list[str] = []
+    for spec in english_specs:
+        key = spec.lower().strip()
+        if key in _EN_TO_FR_SPECIALITY:
+            result.append(_EN_TO_FR_SPECIALITY[key])
+        else:
+            # Try partial matching
+            for en, fr in _EN_TO_FR_SPECIALITY.items():
+                if en in key or key in en:
+                    result.append(fr)
+                    break
+            else:
+                # Pass through as-is (may already be French)
+                result.append(spec)
+    return result
+
+
+def _lookup_region_for_city(city: str, db_session) -> str | None:  # type: ignore[type-arg]
+    """Look up the region name for a given city/delegation from the hospital DB."""
+    try:
+        from tahalilai.models import HealthFacility
+        from sqlalchemy import func
+
+        row = (
+            db_session.query(HealthFacility.region)
+            .filter(HealthFacility.delegation.ilike(f"%{city}%"))
+            .first()
+        )
+        return row[0] if row else None
+    except Exception:
+        return None
+
+
+def _urgency_from_status(status_value: str) -> str:
+    """Derive urgency level from overall_status enum value."""
+    if status_value in ("normal", "mostly_normal"):
+        return "routine"
+    if status_value == "abnormal":
+        return "soon"
+    return "urgent"
+
+
+# ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
 
@@ -496,42 +586,90 @@ def _run_pipeline(
         # Step 2: AI analysis
         _jobs[job_id]["message"] = "AI Doctor is analyzing your results..."
         t0 = time.time()
-        analysis = analyze_text(ocr_text, age, gender)
+        analysis_result = analyze_text(ocr_text, age, gender)
         ai_s = round(time.time() - t0, 2)
 
-        if analysis.startswith("Error"):
-            _jobs[job_id].update(status="failed", error=analysis)
+        # Handle structured vs error/string result
+        structured: StructuredAnalysis | None = None
+        structured_dict: dict | None = None
+        if isinstance(analysis_result, StructuredAnalysis):
+            structured = analysis_result
+            analysis_markdown = render_markdown(structured)
+            structured_dict = structured.model_dump(mode="json")
+        elif isinstance(analysis_result, str) and analysis_result.startswith("Error"):
+            _jobs[job_id].update(status="failed", error=analysis_result)
             return
+        else:
+            # Safety net: plain string (shouldn't happen with new code)
+            analysis_markdown = str(analysis_result)
 
         print(f"[{tag}] AI analysis completed in {ai_s}s")
 
-        # Step 2.5: Doctor recommendation
-        _jobs[job_id]["message"] = "Finding recommended doctors..."
+        # Step 2.5: Doctor + hospital recommendation
+        _jobs[job_id]["message"] = "Finding recommended doctors and hospitals..."
         recommendation = {"specialities": ["Médecin généraliste"], "urgency": "routine"}
         recommended_doctors: list[dict] = []
+        recommended_hospitals: list[dict] = []
         try:
             from tahalilai.services.recommender import (
                 extract_recommended_specialities,
                 find_recommended_doctors,
+                find_recommended_hospitals,
             )
             from tahalilai.database import SessionLocal
 
-            recommendation = extract_recommended_specialities(analysis)
+            # Extract specialties from structured data (skip 2nd Gemini call)
+            if structured and structured.recommended_specialties:
+                en_specs = [s.specialty for s in structured.recommended_specialties[:2]]
+                fr_specs = _map_specialties_to_french(en_specs)
+                urgency = _urgency_from_status(
+                    structured.report_summary.overall_status.value
+                )
+                recommendation = {"specialities": fr_specs, "urgency": urgency}
+            else:
+                recommendation = extract_recommended_specialities(analysis_markdown)
+
             db = SessionLocal()
             try:
+                # Resolve region from city for better hospital filtering
+                region = _lookup_region_for_city(city, db) if city else None
+
                 recommended_doctors = find_recommended_doctors(
                     specialities=recommendation.get("specialities", []),
                     city=city,
                     db=db,
                 )
+                hospital_objects = find_recommended_hospitals(
+                    specialities=recommendation.get("specialities", []),
+                    delegation=city,
+                    region=region,
+                    db=db,
+                    limit_per_speciality=2,
+                )
+                recommended_hospitals = [
+                    {
+                        "id": h.id,
+                        "name": h.name,
+                        "category_code": h.category_code,
+                        "category_name": h.category_name,
+                        "facility_type": h.facility_type,
+                        "region": h.region,
+                        "delegation": h.delegation,
+                        "commune": h.commune or "",
+                        "departments": h.departments or "",
+                        "phone": h.phone or "",
+                        "address": h.address or "",
+                    }
+                    for h in hospital_objects
+                ]
             finally:
                 db.close()
             print(
                 f"[{tag}] Recommended: {recommendation.get('specialities', [])} "
-                f"({len(recommended_doctors)} doctors)"
+                f"({len(recommended_doctors)} doctors, {len(recommended_hospitals)} hospitals)"
             )
         except Exception as exc:
-            print(f"[{tag}] Doctor recommendation failed: {exc}")
+            print(f"[{tag}] Recommendation failed: {exc}")
 
         # Step 3: PDF report
         _jobs[job_id]["message"] = "Generating PDF Report..."
@@ -539,10 +677,11 @@ def _run_pipeline(
         pdf_name = f"{job_id}_report.pdf"
         pdf_path = settings.uploads_dir / pdf_name
         generate_pdf_report(
-            analysis,
+            analysis_markdown,
             pdf_path,
             recommended_doctors=recommended_doctors,
             urgency=recommendation.get("urgency", "routine"),
+            structured=structured,
         )
         pdf_s = round(time.time() - t0, 2)
 
@@ -554,12 +693,14 @@ def _run_pipeline(
             message="Analysis complete!",
             result={
                 "job_id": job_id,
-                "analysis": analysis,
+                "analysis": analysis_markdown,
+                "structured_analysis": structured_dict,
                 "pdf_url": f"/uploads/{pdf_name}" if pdf_path.exists() else None,
                 "audio_url": None,
                 "recommended_specialities": recommendation.get("specialities", []),
                 "urgency": recommendation.get("urgency", "routine"),
                 "recommended_doctors": recommended_doctors,
+                "recommended_hospitals": recommended_hospitals,
                 "timing": {
                     "ocr_seconds": ocr_s,
                     "ai_seconds": ai_s,

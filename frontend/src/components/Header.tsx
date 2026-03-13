@@ -41,6 +41,12 @@ export function Header() {
             >
               {t("doctors.nav") || "Find a Doctor"}
             </Link>
+            <Link
+              href="/hospitals"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+            >
+              {t("hospitals.nav") || "Hospitals"}
+            </Link>
           </nav>
 
           {/* Divider */}

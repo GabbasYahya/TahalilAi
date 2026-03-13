@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export type Language = "en" | "fr" | "ar";
 
@@ -444,6 +444,30 @@ export const translations: Translations = {
     fr: "Les fichiers téléchargés sont automatiquement supprimés.",
     ar: "يتم حذف الملفات المرفوعة تلقائيًا.",
   },
+
+  // Hospitals
+  "hospitals.nav": { en: "Hospitals", fr: "Hôpitaux", ar: "المستشفيات" },
+  "hospitals.title": { en: "Public Health Facilities", fr: "Établissements de Santé Publics", ar: "المرافق الصحية العمومية" },
+  "hospitals.subtitle": {
+    en: "Find public hospitals and primary care centres across Morocco",
+    fr: "Trouvez des hôpitaux publics et centres de santé primaires au Maroc",
+    ar: "اعثور على المستشفيات العمومية ومراكز الرعاية الصحية الأولية عبر المغرب",
+  },
+  "hospitals.search": { en: "Search by name, department...", fr: "Rechercher par nom, département...", ar: "ابحث بالاسم أو التخصص..." },
+  "hospitals.allRegions": { en: "All Regions", fr: "Toutes les régions", ar: "جميع الجهات" },
+  "hospitals.allTypes": { en: "All Types", fr: "Tous les types", ar: "جميع الأنواع" },
+  "hospitals.typeHopital": { en: "Hospital", fr: "Hôpital", ar: "مستشفى" },
+  "hospitals.typePrimary": { en: "Primary Care", fr: "Soins primaires", ar: "رعاية أولية" },
+  "hospitals.noResults": { en: "No facilities found", fr: "Aucun établissement trouvé", ar: "لم يتم العثور على مرافق" },
+  "hospitals.clearFilters": { en: "Clear filters", fr: "Effacer les filtres", ar: "مسح الفلاتر" },
+  "hospitals.found": { en: "facilities found", fr: "établissements trouvés", ar: "مرفق" },
+  "hospitals.region": { en: "Region", fr: "Région", ar: "الجهة" },
+  "hospitals.delegation": { en: "Province", fr: "Délégation", ar: "العمالة" },
+  "hospitals.departments": { en: "Departments", fr: "Départements", ar: "الأقسام" },
+  "hospitals.recommended.title": { en: "Nearby Public Hospitals", fr: "Hôpitaux Publics Proches", ar: "مستشفيات عمومية قريبة" },
+  "hospitals.recommended.subtitle": { en: "Free public facilities near you based on your results", fr: "Établissements publics gratuits près de vous selon vos résultats", ar: "مرافق عمومية مجانية بالقرب منك بناءً على نتائجك" },
+  "hospitals.free": { en: "Free public", fr: "Public gratuit", ar: "مجاني" },
+  "hospitals.viewAll": { en: "View all hospitals", fr: "Voir tous les hôpitaux", ar: "عرض جميع المستشفيات" },
 };
 
 interface LanguageContextType {
@@ -458,7 +482,20 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 );
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("tahalilai_lang");
+      if (saved === "en" || saved === "fr" || saved === "ar") return saved;
+    }
+    return "en";
+  });
+
+  const handleSetLanguage = (lang: Language) => {
+    setLanguage(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tahalilai_lang", lang);
+    }
+  };
 
   const t = (key: string): string => {
     return translations[key]?.[language] ?? key;
@@ -466,8 +503,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const dir = language === "ar" ? "rtl" : "ltr";
 
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = dir;
+  }, [language, dir]);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, dir }}>
+    <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t, dir }}>
       <div dir={dir}>{children}</div>
     </LanguageContext.Provider>
   );

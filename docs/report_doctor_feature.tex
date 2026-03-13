@@ -1,0 +1,1086 @@
+%% ============================================================
+%%  TahalilAI — Doctor Directory & Recommendation System
+%%  Engineering Development Report
+%%  Date: March 2026
+%% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{mdframed}
+\usepackage{fontawesome5}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{colortbl}
+\usepackage{makecell}
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, shadows,
+                fit, backgrounds, decorations.pathreplacing, calc}
+
+\geometry{
+  top=2.5cm, bottom=2.5cm,
+  left=2.8cm, right=2.8cm,
+  headheight=15pt
+}
+
+% ---------- Colour Palette ----------
+\definecolor{primary}{HTML}{1A3C5E}
+\definecolor{accent}{HTML}{2980B9}
+\definecolor{success}{HTML}{27AE60}
+\definecolor{warning}{HTML}{F39C12}
+\definecolor{danger}{HTML}{E74C3C}
+\definecolor{purple}{HTML}{8E44AD}
+\definecolor{teal}{HTML}{16A085}
+\definecolor{lightgray}{HTML}{F5F7FA}
+\definecolor{midgray}{HTML}{BDC3C7}
+\definecolor{codebg}{HTML}{F0F4F8}
+\definecolor{codefg}{HTML}{2C3E50}
+\definecolor{dbcolor}{HTML}{2ECC71}
+\definecolor{apicolor}{HTML}{3498DB}
+\definecolor{frontcolor}{HTML}{9B59B6}
+\definecolor{aicolor}{HTML}{E67E22}
+\definecolor{etlcolor}{HTML}{1ABC9C}
+
+% ---------- Hyperref ----------
+\hypersetup{
+  colorlinks = true,
+  linkcolor  = accent,
+  urlcolor   = accent,
+  citecolor  = accent,
+  pdftitle   = {TahalilAI Doctor Feature Report},
+  pdfauthor  = {TahalilAI Development Team}
+}
+
+% ---------- Section Formatting ----------
+\titleformat{\section}
+  {\Large\bfseries\color{primary}}
+  {\thesection}{1em}{}
+  [\color{midgray}\titlerule]
+
+\titleformat{\subsection}
+  {\large\bfseries\color{accent}}
+  {\thesubsection}{1em}{}
+
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{primary}}
+  {\thesubsubsection}{1em}{}
+
+% ---------- Header / Footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{primary}\textbf{TahalilAI} — Doctor Directory \& Recommendation Report}
+\fancyhead[R]{\small\color{midgray}March 2026}
+\fancyfoot[C]{\small\color{midgray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{midgray}\leaders\hrule height
+  \headrulewidth\hfill}}
+
+% ---------- Code Listing Style ----------
+\lstdefinestyle{pythonstyle}{
+  backgroundcolor   = \color{codebg},
+  basicstyle        = \ttfamily\footnotesize\color{codefg},
+  keywordstyle      = \bfseries\color{accent},
+  commentstyle      = \itshape\color{success},
+  stringstyle       = \color{danger},
+  numberstyle       = \tiny\color{midgray},
+  numbers           = left,
+  numbersep         = 8pt,
+  breaklines        = true,
+  breakatwhitespace = true,
+  showstringspaces  = false,
+  frame             = single,
+  rulecolor         = \color{midgray},
+  tabsize           = 4,
+  language          = Python,
+  xleftmargin       = 10pt,
+  xrightmargin      = 5pt,
+  aboveskip         = 8pt,
+  belowskip         = 8pt,
+  captionpos        = b,
+}
+
+\lstdefinestyle{tscode}{
+  backgroundcolor   = \color{codebg},
+  basicstyle        = \ttfamily\footnotesize\color{codefg},
+  keywordstyle      = \bfseries\color{purple},
+  commentstyle      = \itshape\color{success},
+  stringstyle       = \color{danger},
+  numberstyle       = \tiny\color{midgray},
+  numbers           = left,
+  numbersep         = 8pt,
+  breaklines        = true,
+  showstringspaces  = false,
+  frame             = single,
+  rulecolor         = \color{midgray},
+  tabsize           = 2,
+  xleftmargin       = 10pt,
+  aboveskip         = 8pt,
+  belowskip         = 8pt,
+  captionpos        = b,
+}
+\lstset{style=pythonstyle}
+
+% ---------- tcolorbox Styles ----------
+\tcbuselibrary{breakable, skins, listings}
+
+\newtcolorbox{infobox}[1][]{
+  enhanced, breakable,
+  colback=lightgray, colframe=accent,
+  fonttitle=\bfseries\color{primary},
+  left=6pt, right=6pt, top=4pt, bottom=4pt,
+  #1
+}
+
+\newtcolorbox{successbox}[1][]{
+  enhanced, breakable,
+  colback=green!5!white, colframe=success,
+  fonttitle=\bfseries\color{success},
+  left=6pt, right=6pt, top=4pt, bottom=4pt,
+  #1
+}
+
+\newtcolorbox{warningbox}[1][]{
+  enhanced, breakable,
+  colback=yellow!5!white, colframe=warning,
+  fonttitle=\bfseries\color{warning},
+  left=6pt, right=6pt, top=4pt, bottom=4pt,
+  #1
+}
+
+\newtcolorbox{notebox}[1][]{
+  enhanced, breakable,
+  colback=purple!5!white, colframe=purple,
+  fonttitle=\bfseries\color{purple},
+  left=6pt, right=6pt, top=4pt, bottom=4pt,
+  #1
+}
+
+% ---------- Custom Commands ----------
+\newcommand{\file}[1]{\texttt{\color{accent}#1}}
+\newcommand{\func}[1]{\texttt{\color{danger}#1}}
+\newcommand{\envvar}[1]{\texttt{\color{warning}#1}}
+\newcommand{\col}[1]{\texttt{\color{teal}#1}}
+\newcommand{\badge}[2]{\colorbox{#1}{\color{white}\small\textbf{\ #2\ }}}
+\newcommand{\endpoint}[2]{\texttt{\badge{apicolor}{#1}\ \color{primary}#2}}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ---------- Title Page ----------
+\begin{titlepage}
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[primary] (current page.north west)
+      rectangle ([yshift=-5.5cm] current page.north east);
+    \fill[accent] ([yshift=-5.5cm] current page.north west)
+      rectangle ([yshift=-6cm] current page.north east);
+  \end{tikzpicture}
+
+  \vspace*{1.5cm}
+  \begin{center}
+    {\color{white}\fontsize{28}{34}\selectfont\bfseries TahalilAI}\\[0.4cm]
+    {\color{white!80!gray}\fontsize{14}{18}\selectfont Engineering Development Report}\\[0.2cm]
+    {\color{accent!60!white}\fontsize{11}{14}\selectfont
+      Doctor Directory, Recommendation System \& AI-Powered Specialist Matching}
+  \end{center}
+
+  \vspace{4.5cm}
+
+  \begin{center}
+    \begin{tcolorbox}[
+      enhanced, width=0.88\textwidth,
+      colback=lightgray, colframe=primary,
+      arc=4pt, boxrule=1pt,
+      left=14pt, right=14pt, top=10pt, bottom=10pt
+    ]
+      \begin{tabular}{@{}ll}
+        \textbf{Project}    & TahalilAI — AI-Powered Medical Analysis Platform \\[4pt]
+        \textbf{Module}     & Doctor Directory \& Recommendation System \\[4pt]
+        \textbf{Authors}    & TahalilAI Development Team \\[4pt]
+        \textbf{Date}       & March 4, 2026 \\[4pt]
+        \textbf{Version}    & 1.0 \\[4pt]
+        \textbf{Records}    & 9,220 doctors across Morocco \\[4pt]
+        \textbf{Status}     & \badge{success}{Released} \\
+      \end{tabular}
+    \end{tcolorbox}
+  \end{center}
+
+  \vfill
+  \begin{center}
+    \color{midgray}\small
+    Faculty of Sciences and Techniques — Computer Science\\
+    School Project — Academic Year 2025--2026
+  \end{center}
+\end{titlepage}
+
+% ---------- Table of Contents ----------
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Executive Summary}
+% ============================================================
+
+This report documents the design, implementation, and testing of the
+\textbf{Doctor Directory and AI-Powered Recommendation System} added to the
+TahalilAI medical analysis platform.
+The feature enables patients to discover qualified doctors in Morocco,
+receive specialist recommendations based on their AI-generated analysis
+results, and interact with a rich doctor directory through the web interface.
+
+The implementation spans eight distinct phases:
+
+\begin{enumerate}[leftmargin=*, itemsep=4pt]
+  \item \textbf{CSV Data Cleanup} — A multi-step ETL pipeline that normalises
+        raw doctor data from 131 unique speciality variants to 78 canonical
+        names, cleans phone numbers, merges duplicate records, and
+        removes 1,407 placeholder phone entries.
+  \item \textbf{SQLite Database} — SQLAlchemy ORM model with 17 fields,
+        3 individual indexes, and a composite index for performant queries.
+  \item \textbf{Backend API} — Six RESTful endpoints (list, filters, detail,
+        recommendation, geolocation) registered on the FastAPI application.
+  \item \textbf{AI Recommendation Service} — Gemini-powered speciality
+        extraction with structured JSON output and local fallback.
+  \item \textbf{Frontend Directory Page} — Full-featured React page with
+        debounced search, multi-filter dropdowns, smart pagination,
+        and a detail modal.
+  \item \textbf{Frontend Recommendation Components} — Three reusable
+        components integrating seamlessly with the results page and
+        displaying urgency-aware doctor cards.
+  \item \textbf{Optional Enrichment Scripts} — Batch geocoding and
+        Google Places rating enrichment pipelines.
+  \item \textbf{Comprehensive Test Suite} — 35 unit tests covering
+        ORM CRUD, query logic, and AI recommendation behaviour.
+\end{enumerate}
+
+\begin{infobox}[title={Module Metrics at a Glance}]
+  \begin{tabular}{lrrr}
+    \toprule
+    \textbf{Layer} & \textbf{Files} & \textbf{Lines} & \textbf{Tests} \\
+    \midrule
+    ETL Scripts (data pipeline) & 4 & $\approx$350 & — \\
+    Database \& Models          & 2 & $\approx$170 & 17 \\
+    Backend API Router          & 1 & $\approx$160 & — \\
+    Recommender Service         & 1 & $\approx$180 & 18 \\
+    Pydantic Schemas            & 1 & $\approx$60  & — \\
+    Frontend Components         & 4 & $\approx$650 & — \\
+    \midrule
+    \textbf{Total}              & \textbf{13} & $\approx$\textbf{1,570} & \textbf{35} \\
+    \bottomrule
+  \end{tabular}
+\end{infobox}
+
+% ============================================================
+\section{Full-Stack Architecture}
+% ============================================================
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=0.5cm and 2cm,
+  every node/.style={font=\small},
+  layer/.style={rectangle, rounded corners=3pt, minimum width=2.6cm,
+                minimum height=0.8cm, draw, thick, align=center},
+  arrow/.style={-{Stealth[length=6pt]}, thick},
+  dashed arrow/.style={-{Stealth[length=6pt]}, dashed, color=midgray}
+]
+
+%% --- Row 0: Data Sources ---
+\node[layer, fill=etlcolor!20, draw=etlcolor] (csv) {Raw CSV\\(9,220 rows)};
+\node[layer, fill=etlcolor!20, draw=etlcolor, right=1.6cm of csv] (clean) {Cleaned CSV\\(deduplicated)};
+\node[layer, fill=warning!20, draw=warning, right=1.6cm of clean] (gmaps) {Google Maps\\API};
+
+%% --- Row 1: Database ---
+\node[layer, fill=dbcolor!20, draw=dbcolor, below=1.4cm of clean] (db) {SQLite DB\\(doctors table)};
+
+%% --- Row 2: Backend ---
+\node[layer, fill=apicolor!20, draw=apicolor, below left=1.4cm and -0.2cm of db] (router) {FastAPI Router\\(/doctors)};
+\node[layer, fill=aicolor!20, draw=aicolor, below right=1.4cm and -0.2cm of db] (recommender) {Recommender\\Service};
+
+%% --- Row 2.5: AI ---
+\node[layer, fill=aicolor!15, draw=aicolor, right=2cm of recommender] (gemini) {Gemini\\Flash};
+
+%% --- Row 3: Frontend ---
+\node[layer, fill=frontcolor!20, draw=frontcolor, below=2.8cm of router] (page) {Doctors Page\\(directory)};
+\node[layer, fill=frontcolor!20, draw=frontcolor, right=2cm of page] (recdoctors) {Recommended\\Doctors};
+
+%% Arrows
+\draw[arrow, color=etlcolor] (csv) -- (clean);
+\draw[arrow, color=etlcolor] (clean) -- (db);
+\draw[dashed arrow]           (gmaps) -- node[above, font=\tiny]{geocode/rate} (db);
+\draw[arrow, color=apicolor]  (db) -- (router);
+\draw[arrow, color=apicolor]  (db) -- (recommender);
+\draw[arrow, color=apicolor]  (router) -- (page);
+\draw[arrow, color=frontcolor](recommender) -- (recdoctors);
+\draw[dashed arrow]           (recommender) -- node[above, font=\tiny]{prompt} (gemini);
+\draw[dashed arrow]           (gemini) -| (recommender);
+
+%% Layer labels
+\node[font=\tiny\itshape\color{midgray}, above=0.05cm of csv] {Phase 1: ETL};
+\node[font=\tiny\itshape\color{midgray}, above=0.05cm of db] {Phase 2: Database};
+\node[font=\tiny\itshape\color{midgray}, below=0.05cm of page] {Phase 4–5: Frontend};
+
+\end{tikzpicture}
+\caption{End-to-end data flow through the Doctor Directory feature}
+\label{fig:architecture}
+\end{figure}
+
+% ============================================================
+\section{Phase 1 — CSV Data Cleaning Pipeline}
+% ============================================================
+
+\subsection{Overview}
+
+The raw source file \file{backend/doctors\_data.csv} contains 9,220 rows scraped
+from Moroccan medical directory websites. The script
+\file{backend/scripts/clean\_doctors\_csv.py} transforms this raw data into a
+production-ready \file{doctors\_data\_clean.csv} through twelve processing stages.
+
+\subsection{Processing Stages}
+
+\begin{longtable}{p{0.4cm} p{3.8cm} p{9.2cm}}
+  \toprule
+  \textbf{\#} & \textbf{Stage} & \textbf{Description} \\
+  \midrule
+  1  & Load (BOM-safe)        & UTF-8-BOM encoding stripping via \texttt{encoding="utf-8-sig"} \\[3pt]
+  2  & Drop unused columns    & Removes \texttt{email}, \texttt{neighborhood}, \texttt{coordinates} \\[3pt]
+  3  & Extract title          & Strips "Dr." / "Dr " prefix from name; stores in \col{title} column \\[3pt]
+  4  & Normalise phones       & Converts all Moroccan numbers to \texttt{+212XXXXXXXXX} E.164 format \\[3pt]
+  5  & Clear placeholders     & Removes junk values like \texttt{+212522000000} (1,407 entries cleared) \\[3pt]
+  6  & Extract primary spec.  & Sets \col{primary\_speciality} from first item in speciality list \\[3pt]
+  7  & Normalise cities       & Maps city variants: Témara $\to$ Temara, Laâyoune $\to$ Laayoune, etc. \\[3pt]
+  8  & Normalise specialities & Maps 131 raw variants to 78 canonical French names \\[3pt]
+  9  & Clean descriptions     & Removes \texttt{||} / \texttt{|} separators, collapses whitespace \\[3pt]
+  10 & Clean image URLs       & Replaces 21 known Cloudinary placeholder URLs with empty strings \\[3pt]
+  11 & Drop sparse columns    & Drops \col{timetable} ($\approx$90.6\% empty) and \col{cabinet\_name} ($\approx$85.2\% empty) \\[3pt]
+  12 & Deduplicate            & Groups by (name, city), keeps "richest" row by field completeness score \\
+  \bottomrule
+  \caption{CSV data cleaning pipeline stages}
+  \label{tab:etl_stages}
+\end{longtable}
+
+\subsection{Key Normalisation Examples}
+
+\begin{infobox}[title={Speciality Normalisation Samples}]
+  \begin{tabular}{ll}
+    \textbf{Raw Value} & \textbf{Canonical Name} \\
+    \hline
+    Médecine générale & Médecin généraliste \\
+    Chirurgien viscéral & Chirurgien digestif \\
+    Chirurgien maxillo-facial & Chirurgien général \\
+    Médecin interniste & Médecin interniste \\
+  \end{tabular}
+\end{infobox}
+
+\subsection{Deduplication Strategy}
+
+The \func{\_row\_richness(row)} helper scores each row by: (1) the number of
+non-empty fields it contains, and (2) the length of the \col{description} field.
+When multiple rows share the same (name, city) pair, only the highest-scoring
+row is retained. This strategy preserves the most informative record without
+manual intervention.
+
+\subsection{Output Schema}
+
+The cleaned CSV contains the following ordered columns:
+
+\begin{center}
+  \small\texttt{title, name, primary\_speciality, specialities, phone,
+  address, city, description, languages, image\_url, profile\_url, source\_site}
+\end{center}
+
+% ============================================================
+\section{Phase 2 — Database Layer}
+% ============================================================
+
+\subsection{Database Configuration (\file{database.py})}
+
+The database layer is built with \textbf{SQLAlchemy 2.0+} and a
+\textbf{SQLite} backend located at \file{backend/tahalilai.db}.
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Engine}: Created with
+        \texttt{connect\_args=\{"check\_same\_thread": False\}} for
+        FastAPI thread-safety compatibility.
+  \item \textbf{Session factory}: \texttt{SessionLocal} with
+        \texttt{autocommit=False, autoflush=False}.
+  \item \textbf{Dependency injection}: The \func{get\_db()} generator
+        yields a scoped session per HTTP request and closes it in a
+        \texttt{finally} block, preventing connection leaks.
+\end{itemize}
+
+\subsection{Doctor ORM Model (\file{models.py})}
+
+\begin{longtable}{p{3.8cm} p{2cm} p{1.8cm} p{5.4cm}}
+  \toprule
+  \textbf{Column} & \textbf{Type} & \textbf{Nullable} & \textbf{Notes} \\
+  \midrule
+  \col{id}                  & Integer & No  & Primary key, auto-increment \\
+  \col{title}               & String  & Yes & "Dr", empty string default \\
+  \col{name}                & String  & No  & Individual index \texttt{ix\_name} \\
+  \col{primary\_speciality} & String  & No  & Individual index \texttt{ix\_speciality} \\
+  \col{specialities}        & String  & Yes & Comma-separated list \\
+  \col{phone}               & String  & Yes & E.164 format (\texttt{+212...}) \\
+  \col{address}             & String  & Yes & Physical office address \\
+  \col{city}                & String  & No  & Individual index \texttt{ix\_city} \\
+  \col{description}         & String  & Yes & Free-text biography \\
+  \col{languages}           & String  & Yes & Spoken languages \\
+  \col{image\_url}          & String  & Yes & Profile photo URL \\
+  \col{profile\_url}        & String  & Yes & External directory link \\
+  \col{source\_site}        & String  & Yes & Origin data source \\
+  \col{latitude}            & Float   & Yes & WGS84 (geocoded, optional) \\
+  \col{longitude}           & Float   & Yes & WGS84 (geocoded, optional) \\
+  \col{google\_rating}      & Float   & Yes & Google Places rating (0.0–5.0) \\
+  \col{google\_review\_count}& Integer& Yes & Number of Google reviews \\
+  \bottomrule
+  \caption{Doctor model column definitions}
+  \label{tab:doctor_columns}
+\end{longtable}
+
+\begin{infobox}[title={Composite Index}]
+  A composite index \texttt{ix\_doctors\_city\_speciality} is defined on
+  \texttt{(city, primary\_speciality)}. This accelerates the most common
+  query pattern: \emph{``find doctors of speciality X in city Y''},
+  which is the core of the recommendation endpoint.
+\end{infobox}
+
+\subsection{Database Seeder (\file{seed\_db.py})}
+
+The \func{seed()} function in \file{backend/scripts/seed\_db.py}:
+
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+  \item Calls \texttt{Base.metadata.create\_all()} to create all tables.
+  \item Checks if the \texttt{doctors} table already contains rows
+        (idempotent — skips if already seeded).
+  \item Reads \file{doctors\_data\_clean.csv} and instantiates
+        \texttt{Doctor} objects for each row.
+  \item Inserts all records in a single \texttt{bulk\_save\_objects()} call,
+        loading \textbf{9,220 doctors} in one batch commit.
+\end{enumerate}
+
+% ============================================================
+\section{Phase 3 — Backend API}
+% ============================================================
+
+\subsection{Router Configuration}
+
+The doctor endpoints are organised in
+\file{backend/src/tahalilai/routers/doctors.py} and registered with:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Prefix:} \texttt{/doctors}
+  \item \textbf{Tags:} \texttt{["doctors"]}
+  \item \textbf{Dependency:} \texttt{db: Session = Depends(get\_db)}
+        applied per route.
+\end{itemize}
+
+\subsection{Endpoint Reference}
+
+\subsubsection{\endpoint{GET}{/doctors} — List \& Search}
+
+\begin{longtable}{p{3cm} p{2.5cm} p{7cm}}
+  \toprule
+  \textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
+  \midrule
+  \texttt{city}       & \texttt{str | None} & Case-insensitive city filter \\
+  \texttt{speciality} & \texttt{str | None} & Case-insensitive speciality filter \\
+  \texttt{q}          & \texttt{str | None} & Full-text search: name, address, description \\
+  \texttt{page}       & \texttt{int = 1}    & Page number ($\geq 1$) \\
+  \texttt{page\_size} & \texttt{int = 20}   & Results per page ($1 \leq n \leq 100$) \\
+  \bottomrule
+\end{longtable}
+
+Returns \texttt{DoctorListResponse} with \texttt{doctors[]}, \texttt{total},
+\texttt{page}, and \texttt{page\_size}.
+All string filters use SQLAlchemy \texttt{ilike()} for case-insensitive
+partial matching.
+
+\subsubsection{\endpoint{GET}{/doctors/cities} — City Aggregation}
+
+Returns \texttt{list[CityCount]} — cities ordered by doctor count descending.
+Query: \texttt{SELECT city, COUNT(id) GROUP BY city ORDER BY COUNT(id) DESC}.
+
+\subsubsection{\endpoint{GET}{/doctors/specialities} — Speciality Aggregation}
+
+Returns \texttt{list[SpecialityCount]} — specialities ordered by doctor count
+descending.
+
+\subsubsection{\endpoint{GET}{/doctors/\{doctor\_id\}} — Single Doctor}
+
+Returns a single \texttt{DoctorResponse}. Raises \texttt{HTTP 404} with a
+descriptive message if the ID is not found.
+
+\subsubsection{\endpoint{GET}{/doctors/recommend} — AI Recommendations}
+
+\begin{longtable}{p{3cm} p{2.5cm} p{7cm}}
+  \toprule
+  \textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
+  \midrule
+  \texttt{specialities} & \texttt{str} (required) & Comma-separated speciality list \\
+  \texttt{city}         & \texttt{str | None}   & Optional city preference \\
+  \texttt{limit}        & \texttt{int = 5}       & Max doctors per speciality ($1 \leq n \leq 20$) \\
+  \bottomrule
+\end{longtable}
+
+\textbf{Algorithm:} For each received speciality, the endpoint queries doctors
+filtered by \texttt{primary\_speciality}. When a city is provided, doctors
+from that city are prepended to fill the result set first; remaining slots
+are filled from any city. All results are deduplicated by doctor ID before
+returning.
+
+\subsubsection{\endpoint{GET}{/doctors/nearby} — Geolocation Search}
+
+\begin{longtable}{p{3cm} p{2.5cm} p{7cm}}
+  \toprule
+  \textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
+  \midrule
+  \texttt{lat}          & \texttt{float} (required) & User latitude (WGS84) \\
+  \texttt{lng}          & \texttt{float} (required) & User longitude (WGS84) \\
+  \texttt{speciality}   & \texttt{str | None}       & Optional speciality filter \\
+  \texttt{radius\_km}   & \texttt{float = 10.0}     & Search radius ($0.1 \leq r \leq 100$) km \\
+  \texttt{limit}        & \texttt{int = 10}         & Max results ($1 \leq n \leq 50$) \\
+  \bottomrule
+\end{longtable}
+
+\textbf{Algorithm:} Fetches all doctors with non-null coordinates, applies
+the \textbf{Haversine formula} (Earth radius $R = 6371$ km) to compute
+great-circle distances, filters by radius, sorts by distance ascending,
+and appends a \texttt{distance\_km} field (rounded to 1 decimal) to each
+result.
+
+\begin{lstlisting}[caption={Haversine distance calculation}, language=Python]
+import math
+
+def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+\end{lstlisting}
+
+\subsection{Pydantic Schemas (\file{schemas.py})}
+
+\begin{longtable}{p{4cm} p{9.5cm}}
+  \toprule
+  \textbf{Schema} & \textbf{Fields} \\
+  \midrule
+  \texttt{DoctorResponse}      & 17 fields mirroring the ORM model; \texttt{from\_attributes=True} for ORM serialisation \\[4pt]
+  \texttt{DoctorListResponse}  & \texttt{doctors: list[DoctorResponse]}, \texttt{total}, \texttt{page}, \texttt{page\_size} \\[4pt]
+  \texttt{CityCount}           & \texttt{city: str}, \texttt{count: int} \\[4pt]
+  \texttt{SpecialityCount}     & \texttt{speciality: str}, \texttt{count: int} \\
+  \bottomrule
+  \caption{Doctor-related Pydantic schemas}
+\end{longtable}
+
+% ============================================================
+\section{Phase 4 — AI Recommendation Service}
+% ============================================================
+
+\subsection{Overview}
+
+The recommender service (\file{services/recommender.py}) bridges the
+AI analysis pipeline and the doctor database. After an analysis job
+completes, the service uses \textbf{Gemini Flash} to read the analysis
+text and extract the most relevant medical specialities the patient
+should consult.
+
+\subsection{Canonical Speciality List}
+
+The module maintains a list of \textbf{36 canonical French medical
+speciality names} (\texttt{CANONICAL\_SPECIALITIES}) covering all major
+disciplines represented in the Moroccan doctor database. This list is
+injected into the Gemini prompt so that extracted speciality names are
+guaranteed to be valid database values.
+
+\begin{infobox}[title={Sample Canonical Specialities (subset)}]
+  Médecin généraliste, Cardiologue, Dermatologue, Endocrinologue,\\
+  Gastro-entérologue, Gynécologue, Neurologue, Ophtalmologue,\\
+  Pédiatre, Pneumologue, Psychiatre, Radiologue, Rhumatologue, Urologue,\\
+  Diabétologue, Nutritionniste, Kinésithérapeute, Oncologue, \ldots
+\end{infobox}
+
+\subsection{Gemini Integration}
+
+\subsubsection{\func{extract\_recommended\_specialities(analysis)}}
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Input:} Full analysis text string (truncated to 3,000
+        characters in the prompt to stay within token budget).
+  \item \textbf{Prompt:} Instructs Gemini to return a strict JSON object
+        with two keys: \texttt{"specialities"} (list from
+        \texttt{CANONICAL\_SPECIALITIES}) and \texttt{"urgency"}
+        (\texttt{"routine"|"soon"|"urgent"}).
+  \item \textbf{Model:} Gemini Flash, \texttt{temperature=0.1},
+        \texttt{max\_output\_tokens=256}.
+  \item \textbf{Post-processing:} Strips markdown code fences
+        (\texttt{```json...```}) before JSON parsing.
+  \item \textbf{Default:} Falls back to
+        \texttt{\{"specialities": ["Médecin généraliste"], "urgency": "routine"\}}
+        on any failure — empty API key, network error, or malformed JSON.
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.9cm,
+    box/.style={rectangle, rounded corners=3pt, minimum width=5cm,
+                minimum height=0.75cm, draw, thick, align=center, font=\small},
+    decision/.style={diamond, draw, thick, aspect=2, font=\small,
+                     fill=lightgray, minimum width=4.5cm},
+    arrow/.style={-{Stealth}, thick, color=primary}
+  ]
+    \node[box, fill=primary!15, draw=primary] (input)  {Analysis Text};
+    \node[box, fill=lightgray, draw=accent, below of=input] (check)  {API key present \& Gemini available?};
+    \node[box, fill=aicolor!15, draw=aicolor, below=1.2cm of check] (gemini) {Gemini Flash API};
+    \node[box, fill=lightgray, draw=accent, below of=gemini] (parse)  {Strip fences → parse JSON};
+    \node[box, fill=success!15, draw=success, below of=parse] (ok)    {Return \{specialities, urgency\}};
+    \node[box, fill=danger!10, draw=danger, right=3.5cm of check] (default) {Default: généraliste\\+ routine};
+
+    \draw[arrow] (input)  -- (check);
+    \draw[arrow] (check)  -- node[left, font=\tiny]{yes} (gemini);
+    \draw[arrow] (gemini) -- (parse);
+    \draw[arrow] (parse)  -- (ok);
+    \draw[arrow, color=danger] (check) -- node[above, font=\tiny]{no / error} (default);
+    \draw[arrow, color=danger, dashed] (gemini.east) -- ++(0.8,0) |- node[right, font=\tiny]{exception} (default);
+  \end{tikzpicture}
+  \caption{Speciality extraction decision flow}
+  \label{fig:extraction_flow}
+\end{figure}
+
+\subsubsection{\func{find\_recommended\_doctors(specialities, city, db, limit\_per\_speciality)}}
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item For each speciality in the input list, queries the database
+        using \texttt{ilike(\%speciality\%)}.
+  \item When a city is provided, city-matching doctors are prepended;
+        remaining slots are filled from any city.
+  \item Deduplicates across all specialities using a \texttt{seen\_ids} set.
+  \item Returns a list of dicts with keys:
+        \texttt{id, title, name, speciality, phone, address, city,
+        image\_url, profile\_url}.
+\end{itemize}
+
+% ============================================================
+\section{Phase 5 \& 6 — Frontend Components}
+% ============================================================
+
+\subsection{Doctors Directory Page (\file{app/doctors/page.tsx})}
+
+The \textbf{Doctors Page} is a Next.js client component providing a
+full-featured interface for browsing the doctor database.
+
+\begin{longtable}{p{3.5cm} p{9.5cm}}
+  \toprule
+  \textbf{Feature} & \textbf{Implementation} \\
+  \midrule
+  Search           & Debounced (300 ms) text input querying name, address, and description \\[3pt]
+  City filter      & Dropdown populated from \texttt{GET /doctors/cities} (sorted by count) \\[3pt]
+  Speciality filter& Dropdown populated from \texttt{GET /doctors/specialities} \\[3pt]
+  Clear filters    & Single button resets city, speciality, search, and page simultaneously \\[3pt]
+  Grid layout      & 1 / 2 / 3 columns responsive (mobile / tablet / desktop) \\[3pt]
+  Pagination       & Smart pagination showing up to 5 page buttons; Previous/Next at boundaries \\[3pt]
+  Doctor cards     & Rendered via \texttt{DoctorCard} components; click opens detail modal \\[3pt]
+  Loading state    & Spinner replaces grid during API fetch \\[3pt]
+  Empty state      & Friendly "No results" message with suggestion \\
+  \bottomrule
+  \caption{Doctors page features}
+\end{longtable}
+
+\textbf{State management:} 10 \texttt{useState} hooks manage independent
+concerns (doctors, filters, pagination, modal). Three \texttt{useEffect}
+hooks handle: (1) initial filter option loading, (2) search debouncing,
+and (3) re-fetching doctors when any filter or page changes.
+
+\begin{lstlisting}[language=Python, caption={Search debounce effect (TypeScript)},
+  style=tscode]
+// 300 ms debounce prevents an API call on every keystroke
+useEffect(() => {
+  const handler = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+  return () => clearTimeout(handler);
+}, [searchQuery]);
+\end{lstlisting}
+
+\subsection{DoctorCard Component (\file{components/DoctorCard.tsx})}
+
+A compact, clickable card displaying the most relevant doctor information
+at a glance.
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Avatar:} Profile image if available; else a coloured
+        monogram badge (doctor initials).
+  \item \textbf{Name \& Speciality:} Truncated name in bold; primary
+        speciality in accent colour.
+  \item \textbf{City \& Distance:} Location icon with city name;
+        optional \texttt{distance\_km} label (used by the nearby endpoint).
+  \item \textbf{Rating:} Star icon with Google rating and review count
+        when available.
+  \item \textbf{Phone:} Displayed as small grey text when present.
+  \item \textbf{Interaction:} \texttt{cursor-pointer} with hover shadow
+        and ring; triggers \texttt{onClick} prop callback.
+\end{itemize}
+
+The \texttt{Doctor} TypeScript interface exported by this component is
+reused by \texttt{DoctorDetailModal} and \texttt{RecommendedDoctors}.
+
+\subsection{DoctorDetailModal Component (\file{components/DoctorDetailModal.tsx})}
+
+A full-screen modal overlay providing complete doctor information and
+direct-action buttons.
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Header:} Gradient banner (indigo $\to$ blue) with
+        avatar, name, and primary speciality.
+  \item \textbf{Body (scrollable):} City, address, phone, languages,
+        Google rating, and description (truncated to 500 characters).
+  \item \textbf{Footer actions:}
+    \begin{itemize}
+      \item \textbf{Call} button — \texttt{<a href="tel:...">} for
+            one-tap dialling.
+      \item \textbf{View Profile} button — opens external directory
+            link in a new tab (rendered only when
+            \texttt{profile\_url} is present).
+    \end{itemize}
+  \item \textbf{Dismissal:} Backdrop click or close button (top-right)
+        fires the \texttt{onClose} prop callback.
+\end{itemize}
+
+\subsection{RecommendedDoctors Component (\file{components/RecommendedDoctors.tsx})}
+
+This component is embedded in the analysis results page and surfaces
+AI-matched doctors with urgency-aware styling.
+
+\begin{longtable}{p{2.5cm} p{3.5cm} p{7cm}}
+  \toprule
+  \textbf{Urgency} & \textbf{Gradient} & \textbf{Banner Message} \\
+  \midrule
+  \texttt{urgent}  & Red (red-600 $\to$ rose-600) & "Urgent — Please consult as soon as possible" \\
+  \texttt{soon}    & Amber (amber-600 $\to$ orange-600) & "Recommended — Schedule a visit soon" \\
+  routine          & Green (emerald-600 $\to$ teal-600) & "Routine — For your regular follow-up" \\
+  \bottomrule
+  \caption{Urgency-based visual variants in RecommendedDoctors}
+\end{longtable}
+
+\textbf{Data mapping:} The component converts the
+\texttt{RecommendedDoctor} interface (returned by the recommendation API,
+with a \texttt{speciality} key) to the \texttt{Doctor} interface expected
+by \texttt{DoctorCard} (which uses \texttt{primary\_speciality}), filling
+all other optional fields with empty strings.
+
+% ============================================================
+\section{Phase 7 — Optional Enrichment Scripts}
+% ============================================================
+
+\subsection{Geocoding Script (\file{scripts/geocode\_doctors.py})}
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item Queries doctors where \col{latitude} \texttt{IS NULL} and
+        \texttt{address} is non-empty.
+  \item For each doctor, calls the \textbf{Google Maps Geocoding API}
+        with the query \texttt{"\{address\}, \{city\}, Morocco"}.
+  \item Updates \col{latitude} and \col{longitude} columns in the database.
+  \item Batches commits every 50 records; includes 0.1 s sleep to
+        respect rate limits.
+  \item Requires \envvar{GOOGLE\_MAPS\_API\_KEY}.
+\end{itemize}
+
+\begin{warningbox}[title={Cost Estimate}]
+  Google Geocoding API charges approximately \$5 per 1,000 requests.
+  Geocoding all 9,220 doctors once costs roughly \$46.
+  The free tier (up to 40,000 requests/month) covers a full run at no cost.
+\end{warningbox}
+
+\subsection{Rating Enrichment Script (\file{scripts/enrich\_ratings.py})}
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item Queries doctors where \col{google\_rating} \texttt{IS NULL}.
+  \item For each doctor, calls the \textbf{Google Places Text Search API}
+        with the query \texttt{"Dr \{name\} \{city\} Morocco"}.
+  \item Updates \col{google\_rating} and
+        \col{google\_review\_count} columns.
+  \item Supports an optional city argument (\texttt{sys.argv[1]}) for
+        selective enrichment.
+  \item Batches commits every 50 records; includes 0.2 s rate-limit sleep.
+\end{itemize}
+
+\begin{warningbox}[title={Cost Estimate}]
+  Google Places Text Search charges approximately \$32 per 1,000 requests.
+  A full 9,220-doctor enrichment run costs roughly \$295.
+  Selective enrichment (top cities only) is recommended for cost control.
+\end{warningbox}
+
+% ============================================================
+\section{Test Suite}
+% ============================================================
+
+\subsection{Testing Philosophy}
+
+All tests use \textbf{in-memory SQLite} databases (created fresh per test
+function or class) to ensure complete isolation from the production database.
+Gemini API calls are patched with \texttt{@patch} decorators so tests are
+fully deterministic and run without any credentials or network access.
+
+\subsection{Test Module: Database Models}
+
+\textbf{File:} \file{backend/tests/unit/test\_models.py} \quad
+(243 lines, 17 test cases)
+
+\begin{longtable}{p{3.3cm} p{3.5cm} p{6.5cm}}
+  \toprule
+  \textbf{Class} & \textbf{Test} & \textbf{Assertion} \\
+  \midrule
+  \multirow{4}{*}{\texttt{TestDoctorSchema}}
+    & \texttt{test\_table\_name}       & \texttt{\_\_tablename\_\_ == "doctors"} \\
+    & \texttt{test\_table\_created}    & Table exists after \texttt{create\_all()} \\
+    & \texttt{test\_columns\_exist}    & All 17 expected columns present \\
+    & \texttt{test\_indexes\_exist}    & Composite index \texttt{ix\_doctors\_city\_speciality} confirmed \\
+  \midrule
+  \multirow{8}{*}{\texttt{TestDoctorCRUD}}
+    & \texttt{test\_create}            & Insert returns \texttt{id > 0} \\
+    & \texttt{test\_read}              & Fetch by id, validate fields \\
+    & \texttt{test\_update}            & Modify fields, re-fetch, assert changes \\
+    & \texttt{test\_delete}            & Delete, confirm query returns \texttt{None} \\
+    & \texttt{test\_default\_values}   & Empty strings for title/phone/address, \texttt{None} for coords/ratings \\
+    & \texttt{test\_nullable\_fields}  & lat/lng/rating accept \texttt{None} \\
+    & \texttt{test\_geocoding\_fields} & Lat/lng stored and retrieved with $\delta < 0.001$ \\
+    & \texttt{test\_rating\_fields}    & Rating and review count stored correctly \\
+  \midrule
+  \multirow{5}{*}{\texttt{TestDoctorQueries}}
+    & \texttt{test\_filter\_city}       & \texttt{ilike} city returns 2 records \\
+    & \texttt{test\_filter\_speciality} & \texttt{ilike} speciality returns 2 records \\
+    & \texttt{test\_filter\_combined}   & Combined filters return 1 record \\
+    & \texttt{test\_search\_by\_name}   & Wildcard name search works \\
+    & \texttt{test\_count\_by\_city}    & \texttt{GROUP BY} city produces correct counts \\
+  \bottomrule
+  \caption{Database model test cases (17 total)}
+  \label{tab:model_tests}
+\end{longtable}
+
+\subsection{Test Module: Recommender Service}
+
+\textbf{File:} \file{backend/tests/unit/test\_recommender.py} \quad
+(254 lines, 18 test cases)
+
+\begin{longtable}{p{3.8cm} p{3cm} p{6.5cm}}
+  \toprule
+  \textbf{Class} & \textbf{Test} & \textbf{Assertion} \\
+  \midrule
+  \multirow{4}{*}{\makecell[l]{\texttt{TestCanonical}\\\texttt{Specialities}}}
+    & \texttt{test\_not\_empty}         & List has $\geq 1$ entries \\
+    & \texttt{test\_contains\_gen.}     & "Médecin généraliste" in list \\
+    & \texttt{test\_contains\_card.}    & "Cardiologue" in list \\
+    & \texttt{test\_no\_duplicates}     & All entries unique \\
+  \midrule
+  \multirow{7}{*}{\makecell[l]{\texttt{TestExtract}\\\texttt{Recommended}}}
+    & \texttt{test\_default\_no\_gemini}  & Returns généraliste/routine when Gemini absent \\
+    & \texttt{test\_default\_no\_key}     & Returns default when API key empty \\
+    & \texttt{test\_parses\_response}     & Parses valid JSON specialities + urgency \\
+    & \texttt{test\_markdown\_fence}      & Strips \texttt{```json...```} correctly \\
+    & \texttt{test\_api\_exception}       & API error → default \\
+    & \texttt{test\_invalid\_json}        & Malformed JSON → default \\
+    & \texttt{test\_truncates\_long}      & Analysis $> 3000$ chars truncated in prompt \\
+  \midrule
+  \multirow{8}{*}{\makecell[l]{\texttt{TestFind}\\\texttt{Recommended}}}
+    & \texttt{test\_finds\_by\_spec.}     & Returns matching doctors \\
+    & \texttt{test\_prioritizes\_city}    & City results appear first \\
+    & \texttt{test\_fills\_other\_cities} & Fills slots from other cities \\
+    & \texttt{test\_multiple\_specs.}     & Returns results for each speciality \\
+    & \texttt{test\_no\_duplicates}       & Each doctor appears at most once \\
+    & \texttt{test\_empty\_list}          & Empty specialities → empty results \\
+    & \texttt{test\_unknown\_spec.}       & Non-existent speciality → \texttt{[]} \\
+    & \texttt{test\_respects\_limit}      & $\leq \texttt{limit\_per\_speciality}$ returned \\
+  \bottomrule
+  \caption{Recommender service test cases (18 total)}
+  \label{tab:recommender_tests}
+\end{longtable}
+
+\subsection{Test Coverage Summary}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      ybar, bar width=1.6cm,
+      width=10cm, height=7cm,
+      xlabel={Test Module}, ylabel={Test Cases},
+      symbolic x coords={test\_models, test\_recommender},
+      xtick=data,
+      ymin=0, ymax=24,
+      ymajorgrids=true,
+      grid style=dashed,
+      nodes near coords,
+      nodes near coords align={above},
+      every node near coord/.style={font=\small\bfseries},
+      axis line style={color=primary},
+      tick style={color=midgray},
+      label style={color=primary},
+    ]
+      \addplot[fill=dbcolor!70, draw=dbcolor]
+        coordinates {(test\_models, 17)};
+      \addplot[fill=aicolor!70, draw=aicolor]
+        coordinates {(test\_recommender, 18)};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Unit test distribution across doctor-feature modules (total: 35 tests)}
+  \label{fig:test_bar}
+\end{figure}
+
+% ============================================================
+\section{Configuration Reference}
+% ============================================================
+
+\begin{longtable}{p{5cm} p{3cm} p{5.5cm}}
+  \toprule
+  \textbf{Variable} & \textbf{Required} & \textbf{Purpose} \\
+  \midrule
+  \envvar{GEMINI\_API\_KEY}      & \badge{warning}{Recommended} & Gemini Flash for speciality extraction \\[3pt]
+  \envvar{GOOGLE\_MAPS\_API\_KEY}& \badge{success}{Optional} & Geocoding and Places rating enrichment \\[3pt]
+  \envvar{DATABASE\_URL}         & No (auto-derived) & Override default SQLite path \\
+  \bottomrule
+  \caption{Doctor feature environment variables}
+  \label{tab:config}
+\end{longtable}
+
+\subsection{Running the Test Suite}
+
+\begin{lstlisting}[language=bash, style=pythonstyle,
+  caption={Executing doctor feature unit tests}]
+# From the backend directory
+cd backend
+
+# Run all doctor-related unit tests
+pytest tests/unit/test_models.py tests/unit/test_recommender.py -v
+
+# Run with coverage report
+pytest tests/unit/test_models.py tests/unit/test_recommender.py \
+  --cov=tahalilai.models \
+  --cov=tahalilai.services.recommender \
+  --cov-report=term-missing
+
+# Seed the database (run once after cleaning CSV)
+python scripts/clean_doctors_csv.py
+python scripts/seed_db.py
+
+# Optional: geocode and enrich ratings
+python scripts/geocode_doctors.py       # requires GOOGLE_MAPS_API_KEY
+python scripts/enrich_ratings.py        # requires GOOGLE_MAPS_API_KEY
+\end{lstlisting}
+
+% ============================================================
+\section{Design Decisions}
+% ============================================================
+
+\subsection{SQLite over PostgreSQL}
+
+SQLite was chosen for its zero-configuration setup and the fully
+self-contained nature of the school project. The SQLAlchemy ORM layer
+ensures that migrating to PostgreSQL requires only a one-line change
+in the connection URL, with no modifications to model or query code.
+
+\subsection{Haversine in Python vs. PostGIS}
+
+The geolocation endpoint computes distances in Python rather than
+delegating to a spatial database extension. For the current scale
+(9,220 records, all pre-filtered to non-null coordinates), this
+in-memory approach is sufficient and avoids the PostGIS dependency.
+
+\subsection{French Canonical Specialities}
+
+All speciality names are stored and queried in \textbf{French},
+the primary language of the Moroccan medical community.
+The recommender injects the full canonical list into the Gemini
+prompt, ensuring extracted names are always valid database tokens.
+
+\subsection{Graceful Recommendation Fallback}
+
+The Gemini dependency is fully optional. When the API key is absent
+or the service is unavailable, the recommendation pipeline silently
+falls back to "Médecin généraliste" with urgency "routine" — ensuring
+the results page always displays a useful suggestion rather than
+failing silently.
+
+% ============================================================
+\section{Summary and Conclusion}
+% ============================================================
+
+This report has documented the complete end-to-end implementation of the
+TahalilAI Doctor Directory and Recommendation System, comprising:
+
+\begin{enumerate}[leftmargin=*, itemsep=5pt]
+  \item A \textbf{12-stage ETL pipeline} that transforms raw scraped data
+        into a clean, deduplicated, and fully normalised doctor database
+        of 9,220 records.
+  \item A \textbf{SQLAlchemy ORM} layer with a 17-column Doctor model,
+        3 individual indexes, and a composite city/speciality index
+        optimised for the recommendation query pattern.
+  \item A \textbf{6-endpoint FastAPI router} providing list, search,
+        filter, recommendation, geolocation, and detail operations
+        with full Pydantic validation.
+  \item A \textbf{Gemini-powered recommendation service} that reads
+        AI analysis results, extracts relevant French medical specialities,
+        and returns a ranked list of matching doctors — with a robust
+        local fallback.
+  \item A \textbf{complete React frontend} featuring a searchable
+        directory page, a reusable doctor card, a full-detail modal,
+        and an urgency-aware recommendation panel integrated into the
+        analysis results flow.
+  \item A \textbf{35-test unit suite} validating all ORM CRUD operations,
+        complex database queries, Gemini response parsing, and recommendation
+        logic — entirely offline and credential-free.
+\end{enumerate}
+
+\begin{successbox}[title={Deliverables Completed}]
+  \begin{itemize}[leftmargin=*, itemsep=3pt, topsep=0pt]
+    \item[\checkmark] \file{scripts/clean\_doctors\_csv.py} — 12-stage ETL pipeline
+    \item[\checkmark] \file{scripts/seed\_db.py} — Bulk CSV-to-SQLite seeder (9,220 records)
+    \item[\checkmark] \file{scripts/geocode\_doctors.py} — Batch Google Maps geocoding
+    \item[\checkmark] \file{scripts/enrich\_ratings.py} — Batch Google Places rating enrichment
+    \item[\checkmark] \file{database.py} — SQLAlchemy engine + session factory
+    \item[\checkmark] \file{models.py} — Doctor ORM model, 17 columns, composite index
+    \item[\checkmark] \file{schemas.py} — DoctorResponse, DoctorListResponse, CityCount, SpecialityCount
+    \item[\checkmark] \file{routers/doctors.py} — 6 FastAPI endpoints
+    \item[\checkmark] \file{services/recommender.py} — Gemini extraction + DB lookup
+    \item[\checkmark] \file{app/doctors/page.tsx} — Full directory page
+    \item[\checkmark] \file{components/DoctorCard.tsx} — Reusable doctor card
+    \item[\checkmark] \file{components/DoctorDetailModal.tsx} — Full detail modal
+    \item[\checkmark] \file{components/RecommendedDoctors.tsx} — Urgency-aware recommendations
+    \item[\checkmark] \file{tests/unit/test\_models.py} — 17 unit tests
+    \item[\checkmark] \file{tests/unit/test\_recommender.py} — 18 unit tests
+  \end{itemize}
+\end{successbox}
+
+\vspace{1cm}
+\begin{center}
+  \color{midgray}\small
+  \textit{TahalilAI Engineering Development Report — Doctor Directory \& Recommendation System}\\
+  \textit{Version 1.0 — March 2026 — Generated for academic review}
+\end{center}
+
+\end{document}
