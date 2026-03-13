@@ -61,7 +61,7 @@ RUN mkdir -p uploads data \
 
 USER appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
 # TESSERACT_CMD is not needed — tesseract is on PATH via apt-get
 CMD ["python", "-m", "tahalilai"]
