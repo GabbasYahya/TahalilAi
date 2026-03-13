@@ -108,7 +108,7 @@ async def _lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
     cfg = get_settings()
 
     from tahalilai.services.seeder import seed_all
-    seed_all(cfg.backend_dir)
+    seed_task = asyncio.create_task(asyncio.to_thread(seed_all, cfg.backend_dir))
 
     cleanup_task = asyncio.create_task(
         run_cleanup_loop(
@@ -127,8 +127,9 @@ async def _lifespan(_app: FastAPI):  # type: ignore[no-untyped-def]
 
     # Cancel the cleanup loop gracefully on shutdown
     cleanup_task.cancel()
+    seed_task.cancel()
     try:
-        await cleanup_task
+        await asyncio.gather(cleanup_task, seed_task, return_exceptions=True)
     except asyncio.CancelledError:
         pass
     print("TahalilAI server shutting down.")
