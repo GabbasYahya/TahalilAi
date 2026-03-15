@@ -478,6 +478,10 @@ export const translations: Translations = {
   "results.tab.arabic": { en: "Arabic", fr: "Arabe", ar: "العربية" },
   "results.tab.french": { en: "French", fr: "Français", ar: "الفرنسية" },
 
+  // Doctor / Hospital cards
+  "card.call":       { en: "Call",       fr: "Appeler",    ar: "اتصل" },
+  "card.directions": { en: "Directions", fr: "Itinéraire", ar: "الاتجاهات" },
+
   // Upload — translation step
   "upload.translatingStep": {
     en: "Translating to your language…",

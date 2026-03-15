@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 export interface HealthFacility {
   id: number;
   name: string;
@@ -54,6 +56,7 @@ function HospitalIcon({ facilityType }: { facilityType: string }) {
 }
 
 export function HospitalCard({ facility }: HospitalCardProps) {
+  const { t } = useLanguage();
   const badgeClass = CATEGORY_COLOR[facility.category_code] ?? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
   const depts = facility.departments
     ? facility.departments.split(",").slice(0, 4)
@@ -145,7 +148,7 @@ export function HospitalCard({ facility }: HospitalCardProps) {
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
-              Directions
+              {t("card.directions")}
             </a>
           </div>
         </div>
