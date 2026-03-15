@@ -378,36 +378,54 @@ def create_app() -> FastAPI:
 
     @application.post("/translate", response_model=None)
     async def translate(request: TranslationRequest) -> JSONResponse | dict[str, str]:
-        """Translate a completed analysis to Arabic via Gemini."""
-        # Job may no longer be in memory (e.g. after a server restart).
-        # We still translate the text — we just skip writing the result back.
+        """Translate a completed analysis to Arabic or French via Gemini."""
+        lang = request.target_lang  # "ar" or "fr"
         job_in_memory = request.job_id in _jobs
 
         try:
-            arabic = translate_medical_report(request.text)
-            if arabic.startswith("Error"):
-                return JSONResponse({"status": "error", "message": arabic}, status_code=502)
+            translated = translate_medical_report(request.text, lang)
+            if translated.startswith("Error"):
+                return JSONResponse({"status": "error", "message": translated}, status_code=502)
 
-            # Generate Arabic PDF
-            arabic_pdf_url: str | None = None
+            # Generate PDF in the target language
+            pdf_url: str | None = None
             try:
-                ar_pdf_name = f"{request.job_id}_report_ar.pdf"
-                ar_pdf_path = settings.uploads_dir / ar_pdf_name
+                pdf_name = f"{request.job_id}_report_{lang}.pdf"
+                pdf_path = settings.uploads_dir / pdf_name
                 job_result = _jobs[request.job_id].get("result", {}) if job_in_memory else {}
-                generate_arabic_pdf_report(
-                    arabic,
-                    ar_pdf_path,
-                    recommended_doctors=job_result.get("recommended_doctors"),
-                    urgency=job_result.get("urgency", "routine"),
-                )
-                arabic_pdf_url = f"/uploads/{ar_pdf_name}" if ar_pdf_path.exists() else None
+
+                # Reconstruct StructuredAnalysis for rich Arabic PDF layout
+                structured_for_pdf: StructuredAnalysis | None = None
+                raw_struct = job_result.get("structured_analysis")
+                if raw_struct:
+                    try:
+                        structured_for_pdf = StructuredAnalysis(**raw_struct)
+                    except Exception as e:
+                        print(f"[{request.job_id[:8]}] Could not reconstruct structured data: {e}")
+
+                if lang == "ar":
+                    generate_arabic_pdf_report(
+                        translated,
+                        pdf_path,
+                        recommended_doctors=job_result.get("recommended_doctors"),
+                        urgency=job_result.get("urgency", "routine"),
+                        structured=structured_for_pdf,
+                    )
+                else:
+                    generate_pdf_report(
+                        translated,
+                        pdf_path,
+                        recommended_doctors=job_result.get("recommended_doctors"),
+                        urgency=job_result.get("urgency", "routine"),
+                    )
+                pdf_url = f"/uploads/{pdf_name}" if pdf_path.exists() else None
             except Exception as pdf_exc:
-                print(f"[{request.job_id[:8]}] Arabic PDF failed: {pdf_exc}")
+                print(f"[{request.job_id[:8]}] {lang.upper()} PDF failed: {pdf_exc}")
 
             if job_in_memory and "result" in _jobs[request.job_id]:
-                _jobs[request.job_id]["result"]["arabic_analysis"] = arabic
-                _jobs[request.job_id]["result"]["arabic_pdf_url"] = arabic_pdf_url
-            return {"status": "success", "arabic_text": arabic, "arabic_pdf_url": arabic_pdf_url}
+                _jobs[request.job_id]["result"][f"{lang}_analysis"] = translated
+                _jobs[request.job_id]["result"][f"{lang}_pdf_url"] = pdf_url
+            return {"status": "success", "translated_text": translated, "translated_pdf_url": pdf_url, "lang": lang}
         except Exception as exc:
             return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
 

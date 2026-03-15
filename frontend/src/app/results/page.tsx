@@ -84,10 +84,8 @@ interface AnalysisData {
     job_id?: string;
     text: string;
     structured_analysis?: StructuredAnalysisData | null;
-    arabicText?: string;
     audioUrl?: string;
     pdfUrl?: string;
-    arabicPdfUrl?: string;
     timestamp: number;
     recommended_specialities?: string[];
     urgency?: string;
@@ -95,12 +93,19 @@ interface AnalysisData {
     recommended_hospitals?: RecommendedHospital[];
 }
 
+interface TranslationData {
+    lang: "ar" | "fr";
+    text: string;
+    pdfUrl?: string;
+}
+
 export default function ResultsPage() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const router = useRouter();
 
     const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-    const [activeTab, setActiveTab] = useState<"english" | "arabic">("english");
+    const [activeTab, setActiveTab] = useState<"english" | "ar" | "fr">("english");
+    const [translationData, setTranslationData] = useState<TranslationData | null>(null);
     const [translating, setTranslating] = useState(false);
     const [audioState, setAudioState] = useState<"idle" | "generating" | "ready">("idle");
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -126,6 +131,17 @@ export default function ResultsPage() {
         if (data.audioUrl) {
             setAudioUrl(`${API_URL}${data.audioUrl}`);
             setAudioState("ready");
+        }
+        // Load auto-translated result (set by upload page for AR/FR users)
+        const storedTranslation = localStorage.getItem("analysisTranslation");
+        if (storedTranslation) {
+            try {
+                const tr: TranslationData = JSON.parse(storedTranslation);
+                setTranslationData(tr);
+                setActiveTab(tr.lang);
+            } catch {
+                // ignore parse errors
+            }
         }
     }, [router]);
 
@@ -187,11 +203,12 @@ export default function ResultsPage() {
         }
     }, [analysisData, audioState]);
 
-    const handleTranslate = async () => {
+    const handleTranslate = async (targetLang: "ar" | "fr") => {
         if (!analysisData) return;
 
-        if (analysisData.arabicText) {
-            setActiveTab("arabic");
+        // Already have translation for this language — just switch tab
+        if (translationData?.lang === targetLang) {
+            setActiveTab(targetLang);
             return;
         }
 
@@ -208,23 +225,23 @@ export default function ResultsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     text: analysisData.text,
-                    job_id: analysisData.job_id
+                    job_id: analysisData.job_id,
+                    target_lang: targetLang,
                 })
             });
 
             const json = await res.json();
             if (json.status === "success") {
-                const newData = { ...analysisData, arabicText: json.arabic_text, arabicPdfUrl: json.arabic_pdf_url ?? undefined };
-                setAnalysisData(newData);
-                localStorage.setItem("analysisResult", JSON.stringify(newData));
-                setActiveTab("arabic");
+                const tr: TranslationData = {
+                    lang: targetLang,
+                    text: json.translated_text,
+                    pdfUrl: json.translated_pdf_url ?? undefined,
+                };
+                setTranslationData(tr);
+                localStorage.setItem("analysisTranslation", JSON.stringify(tr));
+                setActiveTab(targetLang);
             } else {
-                const errMsg = json.message || "Unknown translation error";
-                if (errMsg.includes("CONSUMER_SUSPENDED") || errMsg.includes("API key")) {
-                    setErrorMessage("Translation is temporarily unavailable. Please try again later.");
-                } else {
-                    setErrorMessage("Translation is temporarily unavailable. Please try again later.");
-                }
+                setErrorMessage("Translation is temporarily unavailable. Please try again later.");
             }
         } catch {
             setErrorMessage("Could not reach the translation service.");
@@ -234,8 +251,8 @@ export default function ResultsPage() {
     };
 
     const handleDownloadPDF = () => {
-        const url = activeTab === "arabic" && analysisData?.arabicPdfUrl
-            ? analysisData.arabicPdfUrl
+        const url = (activeTab !== "english" && translationData?.pdfUrl)
+            ? translationData.pdfUrl
             : analysisData?.pdfUrl;
         if (!url) return;
         window.open(`${API_URL}${url}`, "_blank");
@@ -243,6 +260,7 @@ export default function ResultsPage() {
 
     const handleNewAnalysis = () => {
         localStorage.removeItem("analysisResult");
+        localStorage.removeItem("analysisTranslation");
         router.push("/upload");
     };
 
@@ -278,9 +296,9 @@ export default function ResultsPage() {
 
     if (!analysisData) return null;
 
-    const isArabic = activeTab === "arabic";
-    const content = isArabic ? (analysisData.arabicText || "") : analysisData.text;
-    const structured = !isArabic ? (analysisData.structured_analysis ?? null) : null;
+    const isTranslated = activeTab !== "english";
+    const content = isTranslated ? (translationData?.text || "") : analysisData.text;
+    const structured = !isTranslated ? (analysisData.structured_analysis ?? null) : null;
     const urgency = analysisData.urgency || "routine";
     const hasDoctors = (analysisData.recommended_doctors?.length ?? 0) > 0;
     const hasHospitals = (analysisData.recommended_hospitals?.length ?? 0) > 0;
@@ -300,7 +318,7 @@ export default function ResultsPage() {
 
                     <div className="flex items-center gap-2">
                         {/* Download PDF */}
-                        {(analysisData.pdfUrl || analysisData.arabicPdfUrl) && (
+                        {(analysisData.pdfUrl || translationData?.pdfUrl) && (
                             <button
                                 onClick={handleDownloadPDF}
                                 className="flex items-center gap-2 rounded-xl bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
@@ -308,36 +326,75 @@ export default function ResultsPage() {
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                {isArabic ? "تحميل PDF" : "Download PDF"}
+                                {activeTab === "ar" ? "تحميل PDF" : "Download PDF"}
                             </button>
                         )}
 
                         {/* Translate Toggle */}
-                        <button
-                            onClick={isArabic ? () => setActiveTab("english") : handleTranslate}
-                            disabled={translating}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
-                                translating
-                                ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-wait"
-                                : isArabic
-                                ? "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
-                                : "bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-200"
-                            }`}
-                        >
-                            {translating ? (
-                                <>
-                                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                    </svg>
-                                    Translating...
-                                </>
-                            ) : isArabic ? (
-                                "Show English"
-                            ) : (
-                                <>Translate عربي</>
-                            )}
-                        </button>
+                        {isTranslated ? (
+                            // Viewing translated content → "Show in English" button
+                            <button
+                                onClick={() => setActiveTab("english")}
+                                className="flex items-center gap-2 rounded-xl bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                            >
+                                {t("results.showEnglish")}
+                            </button>
+                        ) : language === "en" ? (
+                            // English site → two side-by-side translate buttons
+                            <>
+                                <button
+                                    onClick={() => handleTranslate("ar")}
+                                    disabled={translating}
+                                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                                        translating
+                                        ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-wait"
+                                        : "bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-200"
+                                    }`}
+                                >
+                                    {translating ? (
+                                        <>
+                                            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                            {t("results.translating")}
+                                        </>
+                                    ) : t("results.translateToArabic")}
+                                </button>
+                                <button
+                                    onClick={() => handleTranslate("fr")}
+                                    disabled={translating}
+                                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                                        translating
+                                        ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-wait"
+                                        : "bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-200"
+                                    }`}
+                                >
+                                    {translating ? t("results.translating") : t("results.translateToFrench")}
+                                </button>
+                            </>
+                        ) : (
+                            // Arabic/French site viewing English → one translate button for their language
+                            <button
+                                onClick={() => handleTranslate(language as "ar" | "fr")}
+                                disabled={translating}
+                                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                                    translating
+                                    ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-wait"
+                                    : "bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-200"
+                                }`}
+                            >
+                                {translating ? (
+                                    <>
+                                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        {t("results.translating")}
+                                    </>
+                                ) : language === "ar" ? t("results.translateToArabic") : t("results.translateToFrench")}
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -354,7 +411,7 @@ export default function ResultsPage() {
                         <div className="flex items-start justify-between">
                             <div>
                                 <h1 className="text-xl font-bold tracking-tight">
-                                    {isArabic ? "تقرير التحليل الطبي" : "Medical Analysis Report"}
+                                    {activeTab === "ar" ? "تقرير التحليل الطبي" : "Medical Analysis Report"}
                                 </h1>
                                 <p className="mt-1 text-sm text-primary-100">
                                     {new Date(analysisData.timestamp).toLocaleDateString("en-US", {
@@ -363,7 +420,7 @@ export default function ResultsPage() {
                                 </p>
                             </div>
                             <div className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium backdrop-blur-sm">
-                                {isArabic ? "عربي" : "English"}
+                                {activeTab === "ar" ? t("results.tab.arabic") : activeTab === "fr" ? t("results.tab.french") : t("results.tab.english")}
                             </div>
                         </div>
                     </div>
@@ -456,8 +513,8 @@ export default function ResultsPage() {
                         /* ── Legacy Markdown View ── */
                         <>
                             <div
-                                className={`relative px-8 py-8 md:px-10 md:py-10 min-h-[200px] ${isArabic ? "text-right" : "text-left"} ${!reportExpanded ? "max-h-64 overflow-hidden" : ""}`}
-                                dir={isArabic ? "rtl" : "ltr"}
+                                className={`relative px-8 py-8 md:px-10 md:py-10 min-h-[200px] ${activeTab === "ar" ? "text-right" : "text-left"} ${!reportExpanded ? "max-h-64 overflow-hidden" : ""}`}
+                                dir={activeTab === "ar" ? "rtl" : "ltr"}
                             >
                                 {!reportExpanded && (
                                     <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-slate-800 to-transparent" />

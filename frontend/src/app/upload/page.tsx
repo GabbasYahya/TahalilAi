@@ -10,7 +10,7 @@ import { PrivacyBanner } from "@/components/PrivacyBanner";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function UploadPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,7 +119,7 @@ export default function UploadPage() {
             setProcessingStep(2);
             setStatusMessage("Analysis complete! Loading results...");
 
-            localStorage.setItem("analysisResult", JSON.stringify({
+            const resultPayload = {
               job_id: statusData.result.job_id || jobId,
               text: statusData.result.analysis,
               structured_analysis: statusData.result.structured_analysis || null,
@@ -130,9 +130,40 @@ export default function UploadPage() {
               recommended_doctors: statusData.result.recommended_doctors || [],
               recommended_hospitals: statusData.result.recommended_hospitals || [],
               timestamp: Date.now()
-            }));
+            };
+            localStorage.setItem("analysisResult", JSON.stringify(resultPayload));
 
-            await new Promise((r) => setTimeout(r, 600));
+            // Auto-translate for non-English users
+            if (language === "ar" || language === "fr") {
+              setStatusMessage(t("upload.translatingStep"));
+              try {
+                const trRes = await fetch(`${API_URL}/translate`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    text: statusData.result.analysis,
+                    job_id: resultPayload.job_id,
+                    target_lang: language,
+                  }),
+                });
+                const trData = await trRes.json();
+                if (trData.status === "success") {
+                  localStorage.setItem("analysisTranslation", JSON.stringify({
+                    lang: trData.lang,
+                    text: trData.translated_text,
+                    pdfUrl: trData.translated_pdf_url,
+                  }));
+                } else {
+                  localStorage.removeItem("analysisTranslation");
+                }
+              } catch {
+                localStorage.removeItem("analysisTranslation");
+              }
+            } else {
+              localStorage.removeItem("analysisTranslation");
+            }
+
+            await new Promise((r) => setTimeout(r, 400));
             router.push("/results");
           } else if (statusData.status === "failed") {
             clearInterval(pollInterval);

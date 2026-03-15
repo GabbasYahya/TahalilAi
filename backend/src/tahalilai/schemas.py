@@ -112,6 +112,7 @@ class TranslationRequest(BaseModel):
 
     text: str = Field(..., min_length=1, description="English text to translate")
     job_id: str = Field(..., description="UUID of the analysis job")
+    target_lang: str = Field("ar", description="Target language: 'ar' for Arabic, 'fr' for French")
 
 
 class ChatRequest(BaseModel):

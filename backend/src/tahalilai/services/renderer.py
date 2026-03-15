@@ -30,10 +30,22 @@ def render_markdown(analysis: StructuredAnalysis) -> str:
     status_label = _STATUS_LABEL.get(
         analysis.report_summary.overall_status.value, "Unknown"
     )
-    lines.append(f"**Summary** — {status_label}")
+    lines.append("**Summary**")
+    lines.append("")
+    lines.append(f"Overall Status: {status_label}")
     lines.append("")
     lines.append(analysis.report_summary.short_explanation)
     lines.append("")
+
+    # Patient Context
+    ctx = analysis.patient_context
+    gender = ctx.gender_inferred.value.capitalize()
+    age_group = ctx.age_group_inferred.value.replace("_", " ").capitalize()
+    if gender != "Unknown" or age_group != "Unknown":
+        lines.append("**Patient Profile**")
+        lines.append("")
+        lines.append(f"Gender: {gender}  |  Age Group: {age_group}")
+        lines.append("")
 
     # Detailed Analysis (biomarkers)
     if analysis.biomarker_analysis:
@@ -42,8 +54,8 @@ def render_markdown(analysis: StructuredAnalysis) -> str:
         for bm in analysis.biomarker_analysis:
             status = bm.status.value.capitalize()
             lines.append(f"- **{bm.marker_name}**: {bm.measured_value} ({status})")
-            lines.append(f"  *Reference Range*: {bm.reference_range}")
-            lines.append(f"  *Meaning*: {bm.clinical_significance}")
+            lines.append(f"  Reference Range: {bm.reference_range}")
+            lines.append(f"  Meaning: {bm.clinical_significance}")
         lines.append("")
 
     # Abnormal Findings
@@ -62,10 +74,18 @@ def render_markdown(analysis: StructuredAnalysis) -> str:
 
     # Health Recommendations
     if analysis.health_recommendations:
-        lines.append("**Recommendations**")
+        lines.append("**Health Recommendations**")
         lines.append("")
         for rec in analysis.health_recommendations:
             lines.append(f"- {rec}")
+        lines.append("")
+
+    # Specialty Recommendations
+    if analysis.recommended_specialties:
+        lines.append("**Recommended Medical Consultation**")
+        lines.append("")
+        for sp in analysis.recommended_specialties:
+            lines.append(f"- **{sp.specialty}**: {sp.reason}")
         lines.append("")
 
     # Missing Information

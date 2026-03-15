@@ -468,6 +468,22 @@ export const translations: Translations = {
   "hospitals.recommended.subtitle": { en: "Free public facilities near you based on your results", fr: "Établissements publics gratuits près de vous selon vos résultats", ar: "مرافق عمومية مجانية بالقرب منك بناءً على نتائجك" },
   "hospitals.free": { en: "Free public", fr: "Public gratuit", ar: "مجاني" },
   "hospitals.viewAll": { en: "View all hospitals", fr: "Voir tous les hôpitaux", ar: "عرض جميع المستشفيات" },
+
+  // Results — language-aware translation buttons
+  "results.showEnglish": { en: "Show in English", fr: "Voir en anglais", ar: "عرض بالإنجليزية" },
+  "results.translateToArabic": { en: "Translate to Arabic", fr: "Traduire en arabe", ar: "ترجمة إلى العربية" },
+  "results.translateToFrench": { en: "Translate to French", fr: "Traduire en français", ar: "ترجمة إلى الفرنسية" },
+  "results.translating": { en: "Translating…", fr: "Traduction en cours…", ar: "جارٍ الترجمة…" },
+  "results.tab.english": { en: "English", fr: "Anglais", ar: "الإنجليزية" },
+  "results.tab.arabic": { en: "Arabic", fr: "Arabe", ar: "العربية" },
+  "results.tab.french": { en: "French", fr: "Français", ar: "الفرنسية" },
+
+  // Upload — translation step
+  "upload.translatingStep": {
+    en: "Translating to your language…",
+    fr: "Traduction en cours…",
+    ar: "جارٍ الترجمة إلى لغتك…",
+  },
 };
 
 interface LanguageContextType {

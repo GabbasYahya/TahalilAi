@@ -425,14 +425,21 @@ def generate_arabic_pdf_report(
     output_path: str | Path,
     recommended_doctors: list[dict] | None = None,
     urgency: str = "routine",
+    structured: object | None = None,
 ) -> Path:
     """Generate a styled Arabic (RTL) PDF report from translated analysis text.
+
+    When *structured* (a ``StructuredAnalysis`` instance) is provided the
+    report renders a rich layout with Arabic section labels, a biomarker table,
+    abnormal findings, and recommendations.  Falls back to plain-text Markdown
+    rendering when *structured* is ``None``.
 
     Args:
         text_content: Arabic analysis text (may contain light markdown).
         output_path: Destination path for the ``.pdf`` file.
         recommended_doctors: Optional list of doctor dicts to append.
         urgency: Urgency level – ``"urgent"`` adds a critical-values notice.
+        structured: Optional ``StructuredAnalysis`` for rich rendering.
 
     Returns:
         The :class:`~pathlib.Path` to the generated file.
@@ -447,7 +454,10 @@ def generate_arabic_pdf_report(
     pdf.set_auto_page_break(auto=True, margin=22)
     pdf.add_page()
 
-    _render_arabic(pdf, text_content)
+    if structured is not None:
+        _render_structured_ar(pdf, structured)
+    else:
+        _render_arabic(pdf, text_content)
 
     if urgency == "urgent":
         _render_urgency_notice_ar(pdf)
@@ -883,3 +893,255 @@ def _render_structured_en(pdf: _PDFReport, structured) -> None:  # type: ignore[
 def _trunc(text: str, max_len: int) -> str:
     """Truncate text to max_len characters."""
     return text if len(text) <= max_len else text[:max_len - 1] + "\u2026"
+
+
+# ---------------------------------------------------------------------------
+# Arabic structured PDF rendering helpers
+# ---------------------------------------------------------------------------
+
+_STATUS_COLORS_AR = {
+    "normal":        (_GREEN,  _GREENTINT, "كل النتائج طبيعية"),
+    "mostly_normal": (_BLUE,   _SKYTINT,   "النتائج طبيعية في معظمها"),
+    "abnormal":      (_ORANGE, _AMBERTIN,  "نتائج غير طبيعية"),
+    "critical":      (_RED,    _REDTINT,   "قيم حرجة تستوجب العناية الفورية"),
+}
+
+_BIOMARKER_STATUS_LABEL_AR = {
+    "normal":     "طبيعي",
+    "high":       "مرتفع",
+    "low":        "منخفض",
+    "borderline": "حدّي",
+}
+
+_GENDER_AR = {"male": "ذكر", "female": "أنثى", "unknown": "غير محدد"}
+_AGE_AR = {
+    "child": "طفل", "adolescent": "مراهق", "adult": "بالغ",
+    "elderly": "مسنّ", "unknown": "غير محدد",
+}
+_CONFIDENCE_AR = {"high": "عالية", "medium": "متوسطة", "low": "منخفضة"}
+
+
+def _section_header_ar(pdf: _PDFReport, title: str) -> None:
+    """Draw a blue filled section header bar (Arabic/RTL)."""
+    pdf.ln(5)
+    pdf.set_fill_color(*_BLUE)
+    pdf.set_text_color(*_WHITE)
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_section)
+    except Exception:
+        pdf.set_font("Helvetica", "", 12)
+    pdf.multi_cell(0, 9, f"  {_prepare_arabic(title)}", fill=True, align="R")
+    pdf.set_x(pdf.l_margin)
+    pdf.set_text_color(*_DARK)
+    pdf.ln(2)
+
+
+def _render_status_banner_ar(pdf: _PDFReport, structured) -> None:  # type: ignore[no-untyped-def]
+    """Render Arabic colored overall-status banner + short explanation."""
+    status = structured.report_summary.overall_status.value
+    fg, bg, label_ar = _STATUS_COLORS_AR.get(
+        status, (_BLUE, _SKYTINT, status.replace("_", " "))
+    )
+    confidence_val = structured.report_summary.confidence_level.value
+    confidence_ar = _CONFIDENCE_AR.get(confidence_val, confidence_val)
+    explanation = structured.report_summary.short_explanation
+
+    pdf.ln(4)
+    pdf.set_fill_color(*bg)
+    pdf.set_draw_color(*fg)
+    pdf.set_line_width(0.6)
+
+    # Status line
+    pdf.set_text_color(*fg)
+    try:
+        pdf.set_font(pdf._font, "", 13)
+    except Exception:
+        pdf.set_font("Helvetica", "", 13)
+    status_line = _prepare_arabic(f"دقة النتيجة: {confidence_ar}  \u2014  {label_ar}")
+    pdf.multi_cell(0, 9, f"  {status_line}", fill=True, align="R")
+    pdf.set_x(pdf.l_margin)
+
+    # Explanation line(s)
+    pdf.set_text_color(*_DARK)
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 10)
+    pdf.multi_cell(0, 6, f"  {_prepare_arabic(explanation)}", fill=True, align="R")
+    pdf.set_x(pdf.l_margin)
+    pdf.set_line_width(0.2)
+    pdf.ln(3)
+
+
+def _render_patient_context_ar(pdf: _PDFReport, structured) -> None:  # type: ignore[no-untyped-def]
+    """Render patient context row (Arabic labels)."""
+    ctx = structured.patient_context
+    gender_en = ctx.gender_inferred.value
+    age_en = ctx.age_group_inferred.value
+    if gender_en == "unknown" and age_en == "unknown":
+        return
+
+    gender_ar = _GENDER_AR.get(gender_en, gender_en)
+    age_ar = _AGE_AR.get(age_en, age_en.replace("_", " "))
+
+    _section_header_ar(pdf, "ملف المريض")
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*_DARK)
+    row = _prepare_arabic(f"الفئة العمرية: {age_ar}    \u2022    الجنس: {gender_ar}")
+    pdf.multi_cell(0, 6, f"  {row}", align="R")
+    pdf.set_x(pdf.l_margin)
+
+
+def _render_biomarker_table_ar(pdf: _PDFReport, biomarkers: list) -> None:  # type: ignore[no-untyped-def]
+    """Render a formatted biomarker table with Arabic column headers."""
+    if not biomarkers:
+        return
+
+    _section_header_ar(pdf, "تحليل المؤشرات الحيوية")
+
+    cw = pdf.w - 2 * _MARGIN
+    col_w = [cw * 0.32, cw * 0.14, cw * 0.20, cw * 0.13, cw * 0.21]
+    headers_ar = ["المؤشر", "القيمة", "المرجع", "الحالة", "الأهمية السريرية"]
+
+    # Header row
+    pdf.set_fill_color(*_BGBLUE)
+    pdf.set_text_color(*_DARK)
+    try:
+        pdf.set_font(pdf._font, "", 8)
+    except Exception:
+        pdf.set_font("Helvetica", "", 8)
+    for i, h in enumerate(headers_ar):
+        pdf.cell(col_w[i], 7, _prepare_arabic(h), border=1, fill=True, align="C")
+    pdf.ln()
+
+    # Data rows (marker names / values stay in English)
+    try:
+        pdf.set_font(pdf._font, "", 8)
+    except Exception:
+        pdf.set_font("Helvetica", "", 8)
+
+    status_fg = {
+        "normal": _GREEN, "high": _ORANGE,
+        "low": _BLUE, "borderline": _AMBERTEXT,
+    }
+
+    for bm in biomarkers:
+        status_val = bm.status.value
+        fg = status_fg.get(status_val, _DARK)
+        label_ar = _prepare_arabic(_BIOMARKER_STATUS_LABEL_AR.get(status_val, status_val))
+
+        sig = bm.clinical_significance
+        if len(sig) > 55:
+            sig = sig[:52] + "..."
+
+        pdf.set_text_color(*_DARK)
+        pdf.cell(col_w[0], 6, _trunc(bm.marker_name, 28), border=1)
+        pdf.cell(col_w[1], 6, _trunc(bm.measured_value, 12), border=1, align="C")
+        pdf.cell(col_w[2], 6, _trunc(bm.reference_range, 18), border=1, align="C")
+        pdf.set_text_color(*fg)
+        pdf.cell(col_w[3], 6, label_ar, border=1, align="C")
+        pdf.set_text_color(*_MUTED)
+        pdf.cell(col_w[4], 6, sig, border=1)
+        pdf.set_text_color(*_DARK)
+        pdf.ln()
+
+    pdf.set_x(pdf.l_margin)
+    pdf.ln(2)
+
+
+def _render_abnormal_findings_ar(pdf: _PDFReport, findings: list) -> None:  # type: ignore[no-untyped-def]
+    """Render abnormal findings with Arabic labels."""
+    if not findings:
+        return
+
+    _section_header_ar(pdf, "النتائج غير الطبيعية")
+
+    for finding in findings:
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body)
+        except Exception:
+            pdf.set_font("Helvetica", "", 11)
+        pdf.set_text_color(*_RED)
+        header_text = _prepare_arabic(f"{finding.issue}: {finding.marker}")
+        pdf.multi_cell(0, 6, f"  {header_text}", align="R")
+        pdf.set_x(pdf.l_margin)
+
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body - 1)
+        except Exception:
+            pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(*_DARK)
+
+        if finding.possible_meanings:
+            pdf.multi_cell(0, 5, _prepare_arabic("التفسيرات المحتملة:"), align="R")
+            pdf.set_x(pdf.l_margin)
+            for m in finding.possible_meanings:
+                pdf.multi_cell(0, 5, f"{m}  \u2022", align="R")
+                pdf.set_x(pdf.l_margin)
+
+        if finding.recommended_followup_tests:
+            pdf.set_text_color(*_MUTED)
+            tests = ", ".join(finding.recommended_followup_tests)
+            label = _prepare_arabic(f"فحوصات المتابعة: {tests}")
+            pdf.multi_cell(0, 5, f"  {label}", align="R")
+            pdf.set_x(pdf.l_margin)
+            pdf.set_text_color(*_DARK)
+
+        pdf.ln(2)
+
+
+def _render_health_recommendations_ar(pdf: _PDFReport, recs: list) -> None:  # type: ignore[no-untyped-def]
+    """Render health recommendations with Arabic header."""
+    if not recs:
+        return
+
+    _section_header_ar(pdf, "التوصيات الصحية")
+    try:
+        pdf.set_font(pdf._font, "", pdf._size_body)
+    except Exception:
+        pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*_DARK)
+
+    for rec in recs:
+        pdf.multi_cell(0, 6, f"{_prepare_arabic(rec)}  \u2022", align="R")
+        pdf.set_x(pdf.l_margin)
+    pdf.ln(1)
+
+
+def _render_specialty_recommendations_ar(pdf: _PDFReport, specialties: list) -> None:  # type: ignore[no-untyped-def]
+    """Render specialty recommendations with Arabic header."""
+    if not specialties:
+        return
+
+    _section_header_ar(pdf, "الاستشارة الطبية الموصى بها")
+    pdf.set_text_color(*_DARK)
+
+    for sp in specialties:
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body)
+        except Exception:
+            pdf.set_font("Helvetica", "", 11)
+        pdf.multi_cell(0, 6, f"{_prepare_arabic(sp.specialty)}  \u27a4", align="R")
+        pdf.set_x(pdf.l_margin)
+        try:
+            pdf.set_font(pdf._font, "", pdf._size_body - 1)
+        except Exception:
+            pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(*_MUTED)
+        pdf.multi_cell(0, 5, f"     {sp.reason}", align="R")
+        pdf.set_x(pdf.l_margin)
+        pdf.set_text_color(*_DARK)
+        pdf.ln(1)
+
+
+def _render_structured_ar(pdf: _PDFReport, structured) -> None:  # type: ignore[no-untyped-def]
+    """Master Arabic renderer: writes all structured sections with Arabic labels."""
+    _render_status_banner_ar(pdf, structured)
+    _render_patient_context_ar(pdf, structured)
+    _render_biomarker_table_ar(pdf, structured.biomarker_analysis)
+    _render_abnormal_findings_ar(pdf, structured.abnormal_findings)
+    _render_health_recommendations_ar(pdf, structured.health_recommendations)
+    _render_specialty_recommendations_ar(pdf, structured.recommended_specialties)
